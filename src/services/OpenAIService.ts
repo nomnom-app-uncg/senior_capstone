@@ -63,22 +63,26 @@ export const getDishesFromIngredients = async (ingredients: string) => {
       messages: [
         {
           role: "user",
-          content: `Based on these ingredients: ${ingredients}, provide exactly one detailed recipe.
-Each recipe should include:
-- Dish Name
-- Serving Size
-- Ingredients with exact measurements
-- Step-by-step cooking instructions
-- Additional tips
-
-Return the recipe in a clear, structured format without extra commentary.`,
+          content: `Generate a detailed recipe based on these ingredients: ${ingredients}. 
+          
+          Format it like this:
+          - **Dish Name**
+          - **Serving Size**
+          - **Ingredients with exact measurements**
+          - **Step-by-step instructions**
+          - **Additional tips**
+          
+          Keep the response clear and structured. Do NOT include extra commentary, just return the formatted recipe.`,
         },
       ],
-      max_tokens: 600,
+      max_tokens: 800, // Increased for more content
+      temperature: 0.7, // Keeps it concise but creative
     });
+
     return response.data.choices?.[0]?.message?.content || "No detailed recipe found.";
   } catch (error) {
     console.error("Error fetching detailed recipe:", error);
     return "Failed to fetch detailed recipe.";
   }
 };
+

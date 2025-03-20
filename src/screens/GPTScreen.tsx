@@ -6,20 +6,17 @@ import {
   Text,
   Button,
   Image,
-  TextInput,
   ScrollView,
   View,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { analyzeImageWithGPT, getDishesFromIngredients } from "@/services/OpenAIService";
+import { analyzeImageWithGPT } from "@/services/OpenAIService";
 
 export default function ImageToGPTScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState("");
-  const [ingredientInput, setIngredientInput] = useState("");
-  const [dishSuggestions, setDishSuggestions] = useState("");
 
   const pickImageGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,18 +60,6 @@ export default function ImageToGPTScreen() {
     }
   };
 
-  const fetchDishes = async () => {
-    if (!ingredientInput.trim()) return;
-
-    try {
-      setDishSuggestions("Fetching dish suggestions...");
-      const result = await getDishesFromIngredients(ingredientInput);
-      setDishSuggestions(result);
-    } catch (error) {
-      setDishSuggestions("Error fetching dish suggestions.");
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -85,7 +70,7 @@ export default function ImageToGPTScreen() {
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.heading}>🍽️ Image & Ingredients to GPT</Text>
+          <Text style={styles.heading}>🍽️ Image to GPT</Text>
 
           {/* 🎨 Image Picker Buttons */}
           <Button title="Pick from Gallery" onPress={pickImageGallery} />
@@ -99,23 +84,6 @@ export default function ImageToGPTScreen() {
             <>
               <Text style={styles.subHeading}>GPT Analysis:</Text>
               <Text style={styles.analysisText}>{analysisResult}</Text>
-            </>
-          )}
-
-          {/* 📝 Ingredient Input & Dish Suggestions */}
-          <Text style={styles.subHeading}>Enter Ingredients:</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter ingredients (comma-separated)"
-            value={ingredientInput}
-            onChangeText={setIngredientInput}
-          />
-          <Button title="Find Dishes" onPress={fetchDishes} />
-
-          {dishSuggestions && (
-            <>
-              <Text style={styles.subHeading}>Dish Suggestions:</Text>
-              <Text style={styles.analysisText}>{dishSuggestions}</Text>
             </>
           )}
         </ScrollView>
@@ -137,5 +105,4 @@ const styles = StyleSheet.create({
   subHeading: { fontSize: 18, fontWeight: "600", marginTop: 20, marginBottom: 10, color: "black" },
   analysisText: { fontSize: 16, color: "black", textAlign: "center", paddingHorizontal: 20 },
   image: { width: 200, height: 200, resizeMode: "contain", marginTop: 20 },
-  input: { width: "90%", borderWidth: 1, borderColor: "#ccc", padding: 10, borderRadius: 5, marginBottom: 10 },
 });

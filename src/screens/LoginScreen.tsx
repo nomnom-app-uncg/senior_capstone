@@ -1,15 +1,16 @@
-//loginscreen
+// LoginScreen.tsx
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text } from 'react-native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '@/constants/config'; // Import the centralized API URL
 
 const LoginScreen = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const router = useRouter(); // expo-router hook for navigation
+  const [error, setError]       = useState('');
+  const router                = useRouter(); // expo-router hook for navigation
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -18,7 +19,7 @@ const LoginScreen = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:3000/login', {
+      const response = await axios.post(`${API_URL}/login`, {
         email,
         password,
       });

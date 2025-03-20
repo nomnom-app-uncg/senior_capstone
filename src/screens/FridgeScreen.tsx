@@ -15,6 +15,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DeviceEventEmitter } from "react-native";
 import { getDishesFromIngredients } from "@/services/OpenAIService";
+import { API_URL } from "@/constants/config"; // Make sure this points to your server IP/port
 
 export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<string[]>([]);
@@ -39,53 +40,54 @@ export default function FridgeScreen() {
     setLoadingGPT(false);
   };
 
-  // Example using fetch:
-const saveRecipe = async () => {
-  if (!selectedDishRecipe) return;
+  const saveRecipe = async () => {
+    if (!selectedDishRecipe) return;
 
-  try {
-    // We'll use the first line as title
-    const title = selectedDishRecipe.split("\n")[0] || "My Saved Recipe";
-    const content = selectedDishRecipe;
+    try {
+      // Use the first line of the AI response as the title
+      const title = selectedDishRecipe.split("\n")[0] || "My Saved Recipe";
+      const content = selectedDishRecipe;
 
-    // Suppose we have the user token stored in AsyncStorage or context:
-    const token = await AsyncStorage.getItem("userToken"); // or wherever you keep it
-    if (!token) {
-      Alert.alert("Not logged in", "Please log in to save recipes to your account.");
-      return;
+      // Grab token from AsyncStorage
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        Alert.alert("Not logged in", "Please log in to save recipes to your account.");
+        return;
+      }
+
+      // Use the same base URL as in your config
+      const response = await fetch(`${API_URL}/saveRecipe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, content }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to save recipe");
+      }
+
+      Alert.alert("Saved!", "Your recipe has been saved to your profile tab!");
+    } catch (error) {
+      console.error("Error saving recipe:", error);
+      Alert.alert("Error", "Failed to save the recipe.");
     }
-
-    const response = await fetch("http://YOUR_SERVER_IP:3000/saveRecipe", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ title, content })
-    });
-
-    if (!response.ok) {
-      const errData = await response.json();
-      throw new Error(errData.error || "Failed to save recipe");
-    }
-
-    Alert.alert("Saved!", "Your recipe has been saved to your account in MySQL.");
-  } catch (error) {
-    console.error("Error saving recipe:", error);
-    Alert.alert("Error", "Failed to save the recipe.");
-  }
-};
-
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Virtual Fridge</Text>
+
       <TextInput
         style={styles.input}
         placeholder="Add an ingredient"
         value={newIngredient}
         onChangeText={setNewIngredient}
       />
+
       <Button
         title="Add Ingredient"
         onPress={() => {
@@ -95,20 +97,22 @@ const saveRecipe = async () => {
           }
         }}
       />
+
       <ScrollView style={styles.ingredientsList}>
-        {ingredients.map((ingredient: any, index: any) => (
+        {ingredients.map((ingredient, index) => (
           <View key={index} style={styles.ingredientItem}>
             <Text style={styles.ingredientText}>{ingredient}</Text>
             <TouchableOpacity
               style={styles.removeButton}
-              onPress={() =>
-                setIngredients(ingredients.filter((_: any, i: any) => i !== index))
-              }
+              onPress={() => {
+                setIngredients(ingredients.filter((_, i) => i !== index));
+              }}
             >
               <Text style={styles.removeButtonText}>X</Text>
             </TouchableOpacity>
           </View>
         ))}
+
         <TouchableOpacity
           style={styles.findRecipesButton}
           onPress={fetchRecipeFromIngredients}
@@ -119,10 +123,11 @@ const saveRecipe = async () => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
       <Modal
         visible={isModalVisible}
         animationType="slide"
-        transparent={true}
+        transparent
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalContainer}>
@@ -134,15 +139,15 @@ const saveRecipe = async () => {
               >
                 <Text style={styles.dismissText}>✕</Text>
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.saveButton} onPress={saveRecipe}>
                 <Text style={styles.saveButtonText}>❤️ Save</Text>
               </TouchableOpacity>
             </View>
+
             <ScrollView contentContainerStyle={styles.scrollView}>
               <Text style={styles.heading}>Recipe</Text>
-              <Text style={styles.recipeText}>
-                {selectedDishRecipe}
-              </Text>
+              <Text style={styles.recipeText}>{selectedDishRecipe}</Text>
             </ScrollView>
           </View>
         </View>
@@ -151,82 +156,85 @@ const saveRecipe = async () => {
   );
 }
 
+// ------------------------
+//       STYLES
+// ------------------------
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    paddingTop: 50, 
-    paddingHorizontal: 20, 
-    backgroundColor: "#fff" 
+  container: {
+    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    backgroundColor: "#fff",
   },
-  heading: { 
-    fontSize: 24, 
-    fontWeight: "bold", 
-    textAlign: "center", 
-    marginBottom: 20, 
-    color: "#28a745" 
+  heading: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#28a745",
   },
-  input: { 
-    borderWidth: 1, 
-    borderColor: "#ccc", 
-    borderRadius: 5, 
-    padding: 10, 
-    marginBottom: 10, 
-    width: "100%" 
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+    width: "100%",
   },
-  ingredientsList: { 
-    flex: 1, 
-    marginTop: 10, 
-    marginBottom: 20 
+  ingredientsList: {
+    flex: 1,
+    marginTop: 10,
+    marginBottom: 20,
   },
-  ingredientItem: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    padding: 10, 
-    borderBottomWidth: 1, 
-    borderColor: "#ccc" 
+  ingredientItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: "#ccc",
   },
-  ingredientText: { 
-    fontSize: 16 
+  ingredientText: {
+    fontSize: 16,
   },
-  removeButton: { 
-    backgroundColor: "#ff4d4f", 
-    borderRadius: 15, 
-    padding: 5 
+  removeButton: {
+    backgroundColor: "#ff4d4f",
+    borderRadius: 15,
+    padding: 5,
   },
-  removeButtonText: { 
-    color: "#fff", 
-    fontWeight: "bold" 
+  removeButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
-  findRecipesButton: { 
-    backgroundColor: "#28a745", 
-    paddingVertical: 12, 
-    paddingHorizontal: 20, 
-    borderRadius: 8, 
-    alignItems: "center", 
-    marginVertical: 20, 
-    alignSelf: "center", 
-    width: "80%" 
+  findRecipesButton: {
+    backgroundColor: "#28a745",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 20,
+    alignSelf: "center",
+    width: "80%",
   },
-  findRecipesButtonText: { 
-    color: "#fff", 
-    fontWeight: "bold", 
-    fontSize: 16 
+  findRecipesButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
-  modalContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    backgroundColor: "rgba(0,0,0,0.5)", 
-    paddingHorizontal: 20 
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  modalContent: { 
-    backgroundColor: "#fff", 
-    padding: 20, 
-    borderRadius: 12, 
-    width: "90%", 
-    maxHeight: "80%", 
-    alignSelf: "center", 
-    paddingTop: 40 
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    width: "90%",
+    maxHeight: "80%",
+    alignSelf: "center",
+    paddingTop: 40,
   },
   modalHeader: {
     flexDirection: "row",
@@ -237,17 +245,17 @@ const styles = StyleSheet.create({
     left: 10,
     zIndex: 10,
   },
-  dismissButton: { 
+  dismissButton: {
     backgroundColor: "#ff4d4f",
-    paddingVertical: 6, 
-    paddingHorizontal: 12, 
-    borderRadius: 5, 
-    zIndex: 10 
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    zIndex: 10,
   },
-  dismissText: { 
-    color: "#fff", 
-    fontWeight: "bold", 
-    fontSize: 16 
+  dismissText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   saveButton: {
     backgroundColor: "#28a745",
@@ -255,15 +263,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 5,
   },
-  saveButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  scrollView: { 
-    flexGrow: 1, 
-    paddingBottom: 20 
+  saveButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
-  recipeText: { 
-    fontSize: 16, 
-    color: "#333", 
-    marginVertical: 10, 
-    lineHeight: 22 
+  scrollView: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  recipeText: {
+    fontSize: 16,
+    color: "#333",
+    marginVertical: 10,
+    lineHeight: 22,
   },
 });

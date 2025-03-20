@@ -34,17 +34,38 @@ const SECRET_KEY = "your_secret_key";
 app.post("/register", async (req, res) => {
   const { username, email, password } = req.body;
 
-  // Hash password
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
+  try {
+    // Check if the username already exists
+    const checkUserSql = "SELECT * FROM users WHERE username = ?";
+    db.query(checkUserSql, [username], async (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (results.length > 0) {
+        return res.status(409).json({ error: "Username already taken" }); // 409 Conflict
+      }
 
-  // Insert user into database
-  const sql = "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)";
-  db.query(sql, [username, email, hashedPassword], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json({ message: "User registered successfully" });
-  });
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Insert new user
+      const sql = "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)";
+      db.query(sql, [username, email, hashedPassword], (err, result) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        res.json({ message: "User registered successfully" });
+      });
+    });
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 });
+
 
 // Login User
 app.post("/login", (req, res) => {
@@ -68,11 +89,122 @@ app.post("/login", (req, res) => {
     res.json({ token, username: user.username, email: user.email });
   });
 });
+// Get current user info
+app.get("/profile", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    // Query the DB for this user's info
+    const sql = "SELECT user_id, username, email FROM users WHERE user_id = ?";
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      // Return user data (without the password hash)
+      res.json(results[0]);
+    });
+  } catch (error) {
+    console.error("Error in /profile:", error);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+app.delete("/deleteAccount", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    // Delete user row
+    const sql = "DELETE FROM users WHERE user_id = ?";
+    db.query(sql, [userId], (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      return res.json({ message: "Account deleted successfully" });
+    });
+  } catch (error) {
+    console.error("Error in DELETE /deleteAccount:", error);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+
+app.put("/changePassword", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Missing oldPassword or newPassword" });
+    }
+
+    // Fetch user from DB
+    const sqlSelect = "SELECT * FROM users WHERE user_id = ?";
+    db.query(sqlSelect, [userId], async (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const user = results[0];
+      // Compare oldPassword with hashed password
+      const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({ message: "Old password incorrect" });
+      }
+
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+      // Update user's password
+      const sqlUpdate = "UPDATE users SET password_hash = ? WHERE user_id = ?";
+      db.query(sqlUpdate, [hashedNewPassword, userId], (err, updateResult) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        return res.json({ message: "Password updated successfully" });
+      });
+    });
+  } catch (error) {
+    console.error("Error in /changePassword:", error);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+
 
 // Start Server
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+app.listen(3000, "0.0.0.0", () => {
+  console.log("Server running on port 3000 and accessible on local network");
 });
+
 
 // Save a new recipe for the logged-in user
 app.post("/saveRecipe", (req, res) => {
