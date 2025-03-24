@@ -1,31 +1,40 @@
 // FloatingNav.tsx
+import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, RelativePathString } from "expo-router";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import React from "react";
 
 export default function FloatingNav() {
   const router = useRouter();
+  const [activeRoute, setActiveRoute] = useState("/");
 
   const routes = [
-    { icon: "home-outline",    route: "/" },
-    { icon: "search-outline",  route: "/explore" },
-    { icon: "cart-outline",    route: "/fridgeScreen" },
+    { icon: "home-outline", route: "/" },
+    { icon: "search-outline", route: "/explore" },
+    { icon: "cart-outline", route: "/fridgeScreen" },
     { icon: "restaurant-outline", route: "/culinaryhub" },
-    { icon: "person-outline",  route: "/profile" },
+    { icon: "person-outline", route: "/profile" },
   ];
 
   return (
     <View style={styles.container}>
-      {routes.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.icon}
-          onPress={() => router.push(item.route as RelativePathString)}
-        >
-          <Ionicons name={item.icon} size={24} color="white" />
-        </TouchableOpacity>
-      ))}
+      {routes.map((item, index) => {
+        const isActive = activeRoute === item.route;
+        // If active, remove the "-outline" suffix for a filled icon
+        const iconName = isActive ? item.icon.replace("-outline", "") : item.icon;
+        return (
+          <TouchableOpacity
+            key={index}
+            style={styles.iconWrapper}
+            onPress={() => {
+              setActiveRoute(item.route);
+              router.push(item.route as RelativePathString);
+            }}
+          >
+            <Ionicons name={iconName} size={28} color="#6FA35E" />
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -33,18 +42,18 @@ export default function FloatingNav() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 20,
+    bottom: 0,
     left: 0,
     right: 0,
+    height: 70,
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     justifyContent: "space-evenly",
     alignItems: "center",
-    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
   },
-  icon: {
+  iconWrapper: {
     padding: 12,
-    borderRadius: 30,
-    backgroundColor: "rgba(250, 128, 114, 0.9)",
-    marginHorizontal: 8,
   },
 });

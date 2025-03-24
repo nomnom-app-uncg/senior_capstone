@@ -1,68 +1,120 @@
+//culinaryhubscreen.tsx
 import React, { useState } from "react";
-import { 
-  View, 
-  TouchableOpacity, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
-  Platform 
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
 } from "react-native";
-import ImageToGPTScreen from "./GPTScreen"; //  Image Recognition 
-import CulinaryChatScreen from "./CulinaryChatScreen"; // Chat 
+import { LinearGradient } from "expo-linear-gradient";
+import ImageToGPTScreen from "./GPTScreen";
+import CulinaryChatScreen from "./CulinaryChatScreen";
+import FloatingNav from "@/components/FloatingNav";
 
 export default function CulinaryHubScreen() {
   const [activeTab, setActiveTab] = useState<"scan" | "chat">("scan");
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"} // ✅ Fixes keyboard issue
-        style={styles.flexContainer}
-      >
-        {/* Toggle Buttons */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[styles.toggleButton, activeTab === "scan" && styles.activeButton]}
-            onPress={() => setActiveTab("scan")}
-          >
-            <Text style={[styles.toggleButtonText, activeTab === "scan" && styles.activeText]}>
-              📷 Scan
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, activeTab === "chat" && styles.activeButton]}
-            onPress={() => setActiveTab("chat")}
-          >
-            <Text style={[styles.toggleButtonText, activeTab === "chat" && styles.activeText]}>
-              💬 Chat
-            </Text>
-          </TouchableOpacity>
+    <LinearGradient
+      colors={["#F5FBEF", "#CDECC1"]}
+      style={styles.gradientContainer}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* BIGGER Top Logo */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("@/assets/images/nomnomLogo.png")}
+            style={styles.logo}
+          />
         </View>
 
-        {/* Render GPT Image Recognition or Chat */}
-        <View style={styles.contentContainer}>
-          {activeTab === "scan" ? <ImageToGPTScreen /> : <CulinaryChatScreen />}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.flexContainer}
+        >
+          {/* Toggle Buttons (Scan vs Chat) */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                activeTab === "scan" && styles.activeButton,
+              ]}
+              onPress={() => setActiveTab("scan")}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  activeTab === "scan" && styles.activeText,
+                ]}
+              >
+                Scan
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                activeTab === "chat" && styles.activeButton,
+              ]}
+              onPress={() => setActiveTab("chat")}
+            >
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  activeTab === "chat" && styles.activeText,
+                ]}
+              >
+                Chat
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Main Content */}
+          <View style={styles.contentContainer}>
+            {activeTab === "scan" ? <ImageToGPTScreen /> : <CulinaryChatScreen />}
+          </View>
+        </KeyboardAvoidingView>
+
+        {/* Floating Bottom Nav */}
+        <FloatingNav />
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  gradientContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+  },
+  flexContainer: {
+    flex: 1,
+  },
 
-  flexContainer: { flex: 1 }, // ✅ Ensures the whole screen adjusts properly
+  // Made the logo bigger
+  logoContainer: {
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  logo: {
+    width: 160,    // Increased width
+    height: 80,    // Increased height
+    resizeMode: "contain",
+  },
 
+  /* Toggle (Scan/Chat) */
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
     padding: 10,
-    backgroundColor: "#f8f8f8",
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
   },
-
   toggleButton: {
     paddingVertical: 8,
     paddingHorizontal: 20,
@@ -70,17 +122,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
     marginHorizontal: 5,
   },
-
   activeButton: {
     backgroundColor: "#28a745",
   },
-
   toggleButtonText: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
   },
-
   activeText: {
     color: "#fff",
   },
@@ -89,4 +138,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
