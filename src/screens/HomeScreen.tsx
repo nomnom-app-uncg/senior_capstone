@@ -1,39 +1,23 @@
 // src/screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Platform, View, Button } from 'react-native';
+import { Image, StyleSheet, Platform, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { HelloWave } from '@/components/HelloWave';
 import CameraButton from '@/components/CameraButton';
 
 const HomeScreen: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const checkLoginStatus = async () => {
-      const token = await AsyncStorage.getItem('token');
-      setIsLoggedIn(!!token); // If there's a token, the user is logged in
+      const token = await AsyncStorage.getItem('userToken');
+      setIsLoggedIn(!!token);
     };
     checkLoginStatus();
   }, []);
-
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('token');
-    setIsLoggedIn(false); // Update login state
-    router.replace('/login'); // Replace the screen with the Login screen
-  };
-
-  const handleLogin = () => {
-    router.push('/login');
-  };
-
-  const handleRegister = () => {
-    router.push('/register');
-  };
 
   if (isLoggedIn === null) {
     return <ThemedText>Loading...</ThemedText>;
@@ -50,7 +34,7 @@ const HomeScreen: React.FC = () => {
       </ThemedView>
 
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">What is nomnom?: Try it</ThemedText>
+        <ThemedText type="subtitle">What is NomNom? Try it!</ThemedText>
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes. Press{' '}
           <ThemedText type="defaultSemiBold">
@@ -62,7 +46,9 @@ const HomeScreen: React.FC = () => {
 
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>Tap the Explore tab to learn more about what's included in this starter app.</ThemedText>
+        <ThemedText>
+          Tap the Explore tab to learn more about what's included in this starter app.
+        </ThemedText>
       </ThemedView>
 
       <ThemedView style={styles.stepContainer}>
@@ -70,22 +56,12 @@ const HomeScreen: React.FC = () => {
         <ThemedText>
           When you're ready, run <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
           <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to <ThemedText type="defaultSemiBold">app-example</ThemedText>.
+          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
+          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
       </ThemedView>
 
       <CameraButton />
-
-      <View style={styles.logoutContainer}>
-        {!isLoggedIn ? (
-          <>
-            <Button title="Log In" onPress={handleLogin} />
-            <Button title="Register" onPress={handleRegister} />
-          </>
-        ) : (
-          <Button title="Log Out" onPress={handleLogout} />
-        )}
-      </View>
     </ParallaxScrollView>
   );
 };
@@ -103,14 +79,9 @@ const styles = StyleSheet.create({
   reactLogo: {
     height: 178,
     width: 290,
+    position: 'absolute',
     bottom: 0,
     left: 0,
-    position: 'absolute',
-  },
-  logoutContainer: {
-    marginTop: 20,
-    padding: 10,
-    alignItems: 'center',
   },
 });
 

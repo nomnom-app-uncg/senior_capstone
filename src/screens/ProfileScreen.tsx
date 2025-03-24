@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useRouter, RelativePathString } from "expo-router";
 import { API_URL } from "@/constants/config";
 
 type Recipe = {
@@ -31,9 +32,8 @@ export default function ProfileScreen() {
   const [user, setUser] = useState({
     name: "",
     email: "",
-    profilePic: "https://placeimg.com/140/140/people", // or from DB
+    profilePic: "https://placeimg.com/140/140/people",
   });
-
   const [favorites, setFavorites] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -44,9 +44,11 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [showChangePwModal, setShowChangePwModal] = useState(false);
 
+  // Add the router for navigation
+  const router = useRouter();
+
   useEffect(() => {
     loadUserData();
-    // You may leave this listener if other parts of your app emit "favoritesUpdated"
     const listener = DeviceEventEmitter.addListener("favoritesUpdated", loadFavorites);
     return () => {
       listener.remove();
@@ -74,8 +76,6 @@ export default function ProfileScreen() {
       }
 
       const data = await response.json();
-      // data => { user_id, username, email }
-
       setUser({
         name: data.username,
         email: data.email,
@@ -191,8 +191,7 @@ export default function ProfileScreen() {
       Alert.alert("Account Deleted", "Your account has been deleted successfully.");
       // Log out user
       await AsyncStorage.removeItem("userToken");
-      // Navigate to login screen or home, e.g.:
-      // router.push('/login');
+      router.replace("/login" as RelativePathString); // Navigate to login screen
     } catch (error) {
       console.error("Error deleting account:", error);
       Alert.alert("Error", "Failed to delete account.");
@@ -218,9 +217,7 @@ export default function ProfileScreen() {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(
-          errData.error || errData.message || "Failed to change password"
-        );
+        throw new Error(errData.error || errData.message || "Failed to change password");
       }
 
       Alert.alert("Success", "Password updated successfully!");
@@ -234,7 +231,20 @@ export default function ProfileScreen() {
   };
 
   // ------------------------------
-  // 6) RECIPE MODAL
+  // 6) LOGOUT FUNCTION
+  // ------------------------------
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("userToken");
+      router.replace("/login" as RelativePathString); // Navigate to login screen
+    } catch (error) {
+      console.error("Error logging out:", error);
+      Alert.alert("Error", "Failed to log out.");
+    }
+  };
+
+  // ------------------------------
+  // 7) RECIPE MODAL
   // ------------------------------
   const openRecipeModal = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
@@ -247,7 +257,7 @@ export default function ProfileScreen() {
   };
 
   // ------------------------------
-  // 7) RENDER FAVORITE ITEM
+  // 8) RENDER FAVORITE ITEM
   // ------------------------------
   const renderRecipeItem = ({ item }: { item: Recipe }) => (
     <TouchableOpacity style={styles.recipeCard} onPress={() => openRecipeModal(item)}>
@@ -267,6 +277,10 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.changePwButton} onPress={() => setShowChangePwModal(true)}>
           <Text style={styles.changePwButtonText}>Change Password</Text>
+        </TouchableOpacity>
+        {/* LOGOUT BUTTON */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -295,9 +309,7 @@ export default function ProfileScreen() {
         <View style={styles.favoritesSection}>
           <Text style={styles.sectionHeading}>My Favorites</Text>
           {favorites.length === 0 ? (
-            <Text style={styles.noFavorites}>
-              You have no favorite recipes yet.
-            </Text>
+            <Text style={styles.noFavorites}>You have no favorite recipes yet.</Text>
           ) : (
             <FlatList
               data={favorites}
@@ -333,7 +345,6 @@ export default function ProfileScreen() {
               value={newPassword}
               onChangeText={setNewPassword}
             />
-
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -410,6 +421,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   changePwButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  logoutButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
     color: "#fff",
     fontWeight: "bold",
   },
@@ -501,3 +522,5 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
+
+

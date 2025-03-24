@@ -1,4 +1,4 @@
-// /register.tsx
+// /register.tsx in (auth)
 import RegisterScreen from "@/screens/RegisterScreen";
 import React from "react";
 

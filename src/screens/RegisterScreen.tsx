@@ -2,15 +2,15 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text, Alert } from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
-import { API_URL } from '@/constants/config'; // Import centralized API URL
+import { useRouter, RelativePathString } from 'expo-router';
+import { API_URL } from '@/constants/config';
 
-const RegisterScreen = () => {
-  const [username, setUsername]   = useState('');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [error, setError]         = useState('');
-  const router                  = useRouter(); // expo-router hook for navigation
+export default function RegisterScreen() {
+  const [username, setUsername] = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError]       = useState('');
+  const router = useRouter();
 
   const handleRegister = async () => {
     if (!username || !email || !password) {
@@ -19,19 +19,13 @@ const RegisterScreen = () => {
     }
   
     try {
-      const response = await axios.post(`${API_URL}/register`, {
-        username,
-        email,
-        password,
-      });
-  
+      await axios.post(`${API_URL}/register`, { username, email, password });
       Alert.alert("Success", "Registration complete! You can now log in.");
-      router.push("/login"); // Navigate to login page
+      // Navigate to the login screen in the auth group
+      router.push("login" as RelativePathString);
     } catch (err: any) {
       console.error("Registration Error:", err);
-  
       if (err.response) {
-        // Backend responded with an error
         if (err.response.status === 409) {
           setError("Oops! You already have an account. Try logging in.");
         } else if (err.response.status === 500) {
@@ -40,10 +34,8 @@ const RegisterScreen = () => {
           setError("Something went wrong. Please try again.");
         }
       } else if (err.request) {
-        // No response received (server down or unreachable)
         setError("Cannot connect to the server. Please check your internet.");
       } else {
-        // Unknown Axios error
         setError("Unexpected error. Please try again.");
       }
     }
@@ -52,8 +44,7 @@ const RegisterScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      {error ? <Text style={styles.errorText}>{typeof error === "string" ? error : JSON.stringify(error)}</Text> : null}
-
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
       <TextInput
         style={styles.input}
         placeholder="Username"
@@ -74,23 +65,14 @@ const RegisterScreen = () => {
         onChangeText={setPassword}
       />
       <Button title="Register" onPress={handleRegister} />
-      <Button title="Go to Login" onPress={() => router.push('/login')} />
+      <Button title="Go to Login" onPress={() => router.push("login" as RelativePathString)} />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   input: {
     height: 40,
     borderColor: '#ccc',
@@ -98,12 +80,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingLeft: 10,
     borderRadius: 5,
+    color: 'white',
   },
-  errorText: {
-    color: 'red',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
+  errorText: { color: 'red', marginBottom: 10, textAlign: 'center' },
 });
 
-export default RegisterScreen;
+

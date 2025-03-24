@@ -1,6 +1,6 @@
 // FloatingNav.tsx
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, RelativePathString } from "expo-router";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import React from "react";
 
@@ -8,11 +8,11 @@ export default function FloatingNav() {
   const router = useRouter();
 
   const routes = [
-    { icon: "home-outline", route: "/" },
-    { icon: "search-outline", route: "/explore" },
-    { icon: "cart-outline", route: "/fridgeScreen" },
-    { icon: "restaurant-outline", route: "(tabs)/culinaryhub" }, 
-    { icon: "person-outline", route: "/profile" },
+    { icon: "home-outline",    route: "/" },
+    { icon: "search-outline",  route: "/explore" },
+    { icon: "cart-outline",    route: "/fridgeScreen" },
+    { icon: "restaurant-outline", route: "/culinaryhub" },
+    { icon: "person-outline",  route: "/profile" },
   ];
 
   return (
@@ -21,7 +21,7 @@ export default function FloatingNav() {
         <TouchableOpacity
           key={index}
           style={styles.icon}
-          onPress={() => router.push(item.route as any)} // 👈 Type assertion to avoid TypeScript error
+          onPress={() => router.push(item.route as RelativePathString)}
         >
           <Ionicons name={item.icon} size={24} color="white" />
         </TouchableOpacity>

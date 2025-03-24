@@ -2,38 +2,31 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text } from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useRouter, RelativePathString } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '@/constants/config'; // Import the centralized API URL
+import { API_URL } from '@/constants/config';
 
-const LoginScreen = () => {
+export default function LoginScreen() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
-  const router                = useRouter(); // expo-router hook for navigation
+  const router = useRouter();
 
   const handleLogin = async () => {
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
-
     try {
-      const response = await axios.post(`${API_URL}/login`, {
-        email,
-        password,
-      });
+      const response = await axios.post(`${API_URL}/login`, { email, password });
       const { token } = response.data;
-    
-      // Store the token so other screens can use it
+      // Store the token so the root layout detects that we're logged in
       await AsyncStorage.setItem("userToken", token);
-    
-      // Navigate to home or wherever
-      router.push('/home');
+      // Navigate to the tabs group (Home screen)
+      router.replace("/(tabs)" as RelativePathString);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Something went wrong');
-    }    
-    
+    }
   };
 
   return (
@@ -54,23 +47,14 @@ const LoginScreen = () => {
         onChangeText={setPassword}
       />
       <Button title="Login" onPress={handleLogin} />
-      <Button title="Go to Register" onPress={() => router.push('/register')} />
+      <Button title="Go to Register" onPress={() => router.push("register" as RelativePathString)} />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   input: {
     height: 40,
     borderColor: '#ccc',
@@ -78,12 +62,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingLeft: 10,
     borderRadius: 5,
+    color: 'white',
   },
-  errorText: {
-    color: 'red',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
+  errorText: { color: 'red', marginBottom: 10, textAlign: 'center' },
 });
 
-export default LoginScreen;
+
