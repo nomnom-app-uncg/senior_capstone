@@ -14,6 +14,8 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 3. Run Node.js server
 
    ```bash
+   cd src/
+   cd backend/
    node server.js
    ```
 
