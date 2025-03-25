@@ -4,13 +4,20 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## Get started
 
-1. Install dependencies
+1. Find your current IP address and update config.ts file in src/constants
+
+2. Install dependencies
 
    ```bash
    npm install
    ```
+3. Run Node.js server
 
-2. Start the app
+   ```bash
+   node server.js
+   ```
+
+4. Start the app
 
    ```bash
     npx expo start
