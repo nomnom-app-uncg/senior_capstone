@@ -20,11 +20,11 @@ export default function CulinaryHubScreen() {
 
   return (
     <LinearGradient
-      colors={["#F5FBEF", "#CDECC1"]}
+      colors={["#98D67D", "#E8F5E1"]}
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        {/* BIGGER Top Logo */}
+        {/* Logo */}
         <View style={styles.logoContainer}>
           <Image
             source={require("@/assets/images/nomnomLogo.png")}
@@ -92,49 +92,61 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   flexContainer: {
     flex: 1,
   },
-
-  // Made the logo bigger
   logoContainer: {
     alignItems: "center",
     marginTop: 10,
-    marginBottom: 5,
+    marginBottom: 20,
   },
   logo: {
-    width: 160,    // Increased width
-    height: 80,    // Increased height
+    width: 120,
+    height: 60,
     resizeMode: "contain",
   },
-
-  /* Toggle (Scan/Chat) */
   toggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
     padding: 10,
+    marginBottom: 15,
   },
   toggleButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: "#ddd",
-    marginHorizontal: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    marginHorizontal: 8,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   activeButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: "rgba(152, 214, 125, 0.8)",
+    shadowOpacity: 0.15,
   },
   toggleButtonText: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "600",
+    color: "#666",
   },
   activeText: {
-    color: "#fff",
+    color: "#000",
   },
-
   contentContainer: {
     flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

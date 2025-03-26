@@ -1,5 +1,4 @@
-
-//register screen
+// RegisterScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -13,8 +12,8 @@ import {
 } from "react-native";
 import { useRouter, RelativePathString } from "expo-router";
 import axios from "axios";
+import { LinearGradient } from "expo-linear-gradient";
 import { API_URL } from "@/constants/config";
-import GradientBackground from "@/components/GradientBackground"; // ✅ swapped in
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState("");
@@ -51,7 +50,11 @@ export default function RegisterScreen() {
   };
 
   return (
-    <GradientBackground>
+    <LinearGradient
+      // Darker green at top -> lighter green at bottom
+      colors={["#A2D96F", "#CDECC1"]}
+      style={{ flex: 1 }}
+    >
       <SafeAreaView style={{ flex: 1 }}>
         {/* Logo */}
         <View style={styles.logoContainer}>
@@ -88,10 +91,12 @@ export default function RegisterScreen() {
             onChangeText={setPassword}
           />
 
+          {/* "Continue" button (was "Register") */}
           <TouchableOpacity style={styles.continueButton} onPress={handleRegister}>
             <Text style={styles.continueButtonText}>Continue</Text>
           </TouchableOpacity>
 
+          {/* Smaller link to go to Login */}
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => router.push("login" as RelativePathString)}
@@ -100,7 +105,7 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </GradientBackground>
+    </LinearGradient>
   );
 }
 
@@ -118,6 +123,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
+    // Center the form
     alignItems: "center",
   },
   screenTitle: {

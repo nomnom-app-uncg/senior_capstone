@@ -1,5 +1,4 @@
 // LoginScreen.tsx
-//login screen
 import React, { useState } from "react";
 import {
   View,
@@ -12,14 +11,14 @@ import {
 } from "react-native";
 import { useRouter, RelativePathString } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
 import { API_URL } from "@/constants/config";
-import GradientBackground from "@/components/GradientBackground"; // ✅ reused!
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError]       = useState("");
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -38,7 +37,11 @@ export default function LoginScreen() {
   };
 
   return (
-    <GradientBackground>
+    <LinearGradient
+      // Darker green at top -> lighter green at bottom
+      colors={["#A2D96F", "#CDECC1"]}
+      style={{ flex: 1 }}
+    >
       <SafeAreaView style={{ flex: 1 }}>
         {/* Logo */}
         <View style={styles.logoContainer}>
@@ -68,10 +71,12 @@ export default function LoginScreen() {
             onChangeText={setPassword}
           />
 
+          {/* "Continue" button (was "Login") */}
           <TouchableOpacity style={styles.continueButton} onPress={handleLogin}>
             <Text style={styles.continueButtonText}>Continue</Text>
           </TouchableOpacity>
 
+          {/* Smaller link to go to Register */}
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => router.push("register" as RelativePathString)}
@@ -80,7 +85,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </GradientBackground>
+    </LinearGradient>
   );
 }
 

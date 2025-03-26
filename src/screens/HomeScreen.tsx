@@ -1,17 +1,12 @@
 // src/screens/HomeScreen.tsx
-// src/screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import {
-  ImageBackground,
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Text,
-  Platform,
-  Image,
-} from 'react-native';
+import { Image, StyleSheet, Platform, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { HelloWave } from '@/components/HelloWave';
+import CameraButton from '@/components/CameraButton';
 
 const HomeScreen: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -25,81 +20,68 @@ const HomeScreen: React.FC = () => {
   }, []);
 
   if (isLoggedIn === null) {
-    return <Text style={styles.loadingText}>Loading...</Text>;
+    return <ThemedText>Loading...</ThemedText>;
   }
 
   return (
-    <ImageBackground
-      source={require('@/assets/images/homescreenBackground.png')}
-      style={styles.background}
-      resizeMode="cover"
+    <ParallaxScrollView
+      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
+      headerImage={<Image source={require('@/assets/images/partial-react-logo.png')} style={styles.reactLogo} />}
     >
-      <View style={styles.container}>
-        {/* Gradient overlay: white at bottom, fading up */}
-        <LinearGradient
-          colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
-          style={styles.gradient}
-          start={{ x: 0.5, y: 1 }}
-          end={{ x: 0.5, y: 0 }}
-        />
+      <ThemedView style={styles.titleContainer}>
+        <ThemedText type="title">WELCOME TO NOMNOM!</ThemedText>
+        <HelloWave />
+      </ThemedView>
 
-        {/* Title and logo */}
-        <View style={styles.centerContent}>
-          <Text style={styles.title}>WELCOME TO</Text>
-          <Image
-            source={require('@/assets/images/nomnomLogo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">What is NomNom? Try it!</ThemedText>
+        <ThemedText>
+          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes. Press{' '}
+          <ThemedText type="defaultSemiBold">
+            {Platform.select({ ios: 'cmd + d', android: 'cmd + m', web: 'F12' })}
+          </ThemedText>{' '}
+          to open developer tools.
+        </ThemedText>
+      </ThemedView>
 
-       
-       
-      </View>
-    </ImageBackground>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
+        <ThemedText>
+          Tap the Explore tab to learn more about what's included in this starter app.
+        </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
+        <ThemedText>
+          When you're ready, run <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
+          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
+          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
+          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
+        </ThemedText>
+      </ThemedView>
+
+      <CameraButton />
+    </ParallaxScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  titleContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 90,
+    gap: 8,
   },
-  gradient: {
+  stepContainer: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  reactLogo: {
+    height: 178,
+    width: 290,
     position: 'absolute',
-    width: '110%',
-    height: '55%', // adjust as needed
     bottom: 0,
-    zIndex: 1,
-  },
-  centerContent: {
-    alignItems: 'center',
-    marginBottom: 30,
-    zIndex: 2, // above gradient
-  },
-  title: {
-    fontSize: 35,
-    fontWeight: '600',
-    color: '#3E503C',
-    fontFamily: Platform.OS === 'ios' ? 'AvenirNext-Medium' : 'sans-serif-medium',
-    marginBottom: 12,
-  },
-  logo: {
-    width: 160,
-    height: 100,
-  },
- 
-  
-  loadingText: {
-    textAlign: 'center',
-    marginTop: 50,
-    fontSize: 18,
+    left: 0,
   },
 });
 
