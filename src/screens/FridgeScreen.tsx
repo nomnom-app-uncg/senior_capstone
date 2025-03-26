@@ -15,7 +15,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DeviceEventEmitter } from "react-native";
 import { getDishesFromIngredients } from "@/services/OpenAIService";
-import { API_URL } from "@/constants/config"; // Make sure this points to your server IP/port
+import { API_URL } from "@/constants/config";
+import GradientBackground from "@/components/GradientBackground"; // new import
 
 export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<string[]>([]);
@@ -44,18 +45,14 @@ export default function FridgeScreen() {
     if (!selectedDishRecipe) return;
 
     try {
-      // Use the first line of the AI response as the title
       const title = selectedDishRecipe.split("\n")[0] || "My Saved Recipe";
       const content = selectedDishRecipe;
-
-      // Grab token from AsyncStorage
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
         Alert.alert("Not logged in", "Please log in to save recipes to your account.");
         return;
       }
 
-      // Use the same base URL as in your config
       const response = await fetch(`${API_URL}/saveRecipe`, {
         method: "POST",
         headers: {
@@ -78,81 +75,83 @@ export default function FridgeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Virtual Fridge</Text>
+    <GradientBackground>
+      <View style={styles.container}>
+        <Text style={styles.heading}>Virtual Fridge</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Add an ingredient"
-        value={newIngredient}
-        onChangeText={setNewIngredient}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Add an ingredient"
+          value={newIngredient}
+          onChangeText={setNewIngredient}
+        />
 
-      <Button
-        title="Add Ingredient"
-        onPress={() => {
-          if (newIngredient.trim()) {
-            setIngredients([...ingredients, newIngredient.trim()]);
-            setNewIngredient("");
-          }
-        }}
-      />
+        <Button
+          title="Add Ingredient"
+          onPress={() => {
+            if (newIngredient.trim()) {
+              setIngredients([...ingredients, newIngredient.trim()]);
+              setNewIngredient("");
+            }
+          }}
+        />
 
-      <ScrollView style={styles.ingredientsList}>
-        {ingredients.map((ingredient, index) => (
-          <View key={index} style={styles.ingredientItem}>
-            <Text style={styles.ingredientText}>{ingredient}</Text>
-            <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => {
-                setIngredients(ingredients.filter((_, i) => i !== index));
-              }}
-            >
-              <Text style={styles.removeButtonText}>X</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        <TouchableOpacity
-          style={styles.findRecipesButton}
-          onPress={fetchRecipeFromIngredients}
-          disabled={loadingGPT}
-        >
-          <Text style={styles.findRecipesButtonText}>
-            {loadingGPT ? "Loading..." : "Find Recipes"}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <Modal
-        visible={isModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
+        <ScrollView style={styles.ingredientsList}>
+          {ingredients.map((ingredient, index) => (
+            <View key={index} style={styles.ingredientItem}>
+              <Text style={styles.ingredientText}>{ingredient}</Text>
               <TouchableOpacity
-                style={styles.dismissButton}
-                onPress={() => setIsModalVisible(false)}
+                style={styles.removeButton}
+                onPress={() => {
+                  setIngredients(ingredients.filter((_, i) => i !== index));
+                }}
               >
-                <Text style={styles.dismissText}>✕</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.saveButton} onPress={saveRecipe}>
-                <Text style={styles.saveButtonText}>❤️ Save</Text>
+                <Text style={styles.removeButtonText}>X</Text>
               </TouchableOpacity>
             </View>
+          ))}
 
-            <ScrollView contentContainerStyle={styles.scrollView}>
-              <Text style={styles.heading}>Recipe</Text>
-              <Text style={styles.recipeText}>{selectedDishRecipe}</Text>
-            </ScrollView>
+          <TouchableOpacity
+            style={styles.findRecipesButton}
+            onPress={fetchRecipeFromIngredients}
+            disabled={loadingGPT}
+          >
+            <Text style={styles.findRecipesButtonText}>
+              {loadingGPT ? "Loading..." : "Find Recipes"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <Modal
+          visible={isModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setIsModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity
+                  style={styles.dismissButton}
+                  onPress={() => setIsModalVisible(false)}
+                >
+                  <Text style={styles.dismissText}>✕</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.saveButton} onPress={saveRecipe}>
+                  <Text style={styles.saveButtonText}>❤️ Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.scrollView}>
+                <Text style={styles.heading}>Recipe</Text>
+                <Text style={styles.recipeText}>{selectedDishRecipe}</Text>
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </GradientBackground>
   );
 }
 
@@ -164,7 +163,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 50,
     paddingHorizontal: 20,
-    backgroundColor: "#fff",
+    // backgroundColor removed so gradient shows
   },
   heading: {
     fontSize: 24,
