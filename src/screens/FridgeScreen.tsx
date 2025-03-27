@@ -13,239 +13,270 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
-  Dimensions,
+  Image,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DeviceEventEmitter } from "react-native";
 import { getDishesFromIngredients } from "@/services/OpenAIService";
-import { API_URL } from "@/constants/config";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { LinearGradient } from 'expo-linear-gradient';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+
+interface Recipe {
+  title: string;
+  ingredients: string;
+  imageUrl: string;
+}
 
 export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [newIngredient, setNewIngredient] = useState<string>("");
-  const [selectedDishRecipe, setSelectedDishRecipe] = useState<string>("");
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [loadingGPT, setLoadingGPT] = useState(false);
-  const [recipes, setRecipes] = useState<Array<{title: string, ingredients: string}>>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   const fetchRecipeFromIngredients = async () => {
-    if (ingredients.length === 0) return;
+    if (ingredients.length === 0) {
+      Alert.alert("No Ingredients", "Please add some ingredients first.");
+      return;
+    }
+
     setLoadingGPT(true);
-    setSelectedDishRecipe("Fetching detailed recipes...");
     try {
       const result = await getDishesFromIngredients(ingredients.join(", "));
-      // Parse the result into individual recipes
-      const recipeArray = result.split('\n\n').map((recipe: string) => {
-        const lines = recipe.split('\n');
-        const title = lines[0].replace(/^\d+\.\s*/, '').trim();
-        const ingredients = lines.slice(1).filter(line => line.trim() !== '').join('\n').trim();
-        return {
-          title,
-          ingredients,
-        };
-      }).slice(0, 4); // Take only the first 4 recipes
-      setRecipes(recipeArray);
-      setIsModalVisible(true);
-    } catch (error) {
-      console.error("Error fetching detailed recipes:", error);
-      setSelectedDishRecipe("Failed to fetch detailed recipes.");
-      setIsModalVisible(true);
-    }
-    setLoadingGPT(false);
-  };
+      
+      // Split the result into individual recipes
+      const recipeArray = result.split('-------------------')
+        .filter(recipe => recipe.trim())
+        .map(recipe => {
+          const lines = recipe.split('\n');
+          const titleLine = lines.find(line => line.startsWith('Recipe:'));
+          const imageUrlLine = lines.find(line => line.startsWith('Image URL:'));
+          
+          const title = titleLine ? titleLine.replace('Recipe:', '').trim() : '';
+          let imageUrl = imageUrlLine ? imageUrlLine.replace('Image URL:', '').trim() : '';
+          
+          // Clean up the image URL if it's wrapped in quotes or has extra spaces
+          imageUrl = imageUrl.replace(/^["']|["']$/g, '').trim();
+          
+          // Get all content between title and image URL
+          const content = titleLine 
+            ? lines.slice(lines.indexOf(titleLine) + 1, lines.indexOf(imageUrlLine)).join('\n').trim()
+            : lines.join('\n').trim();
+          
+          return { title, ingredients: content, imageUrl };
+        })
+        .filter(recipe => recipe.imageUrl && recipe.imageUrl.startsWith('http')); // Only keep recipes with valid image URLs
 
-  const saveRecipe = async () => {
-    if (!selectedDishRecipe) return;
-
-    try {
-      // Use the first line of the AI response as the title
-      const title = selectedDishRecipe.split("\n")[0] || "My Saved Recipe";
-      const content = selectedDishRecipe;
-
-      // Grab token from AsyncStorage
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Not logged in", "Please log in to save recipes to your account.");
+      if (recipeArray.length === 0) {
+        Alert.alert("No Recipes Found", "No recipes with valid images were found. Please try again.");
         return;
       }
 
-      // Use the same base URL as in your config
-      const response = await fetch(`${API_URL}/saveRecipe`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, content }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to save recipe");
-      }
-
-      Alert.alert("Saved!", "Your recipe has been saved to your profile tab!");
+      setRecipes(recipeArray);
     } catch (error) {
-      console.error("Error saving recipe:", error);
-      Alert.alert("Error", "Failed to save the recipe.");
+      console.error("Error fetching recipes:", error);
+      Alert.alert("Error", "Failed to fetch recipes. Please try again.");
+    } finally {
+      setLoadingGPT(false);
     }
+  };
+
+  const handleAddIngredient = () => {
+    const trimmedIngredient = newIngredient.trim();
+    if (trimmedIngredient) {
+      if (ingredients.includes(trimmedIngredient)) {
+        Alert.alert("Duplicate", "This ingredient is already in your list.");
+        return;
+      }
+      setIngredients([...ingredients, trimmedIngredient]);
+      setNewIngredient("");
+    }
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
+
+  const RecipeCard: React.FC<{ item: Recipe; onPress: () => void }> = ({ item, onPress }) => {
+    const [imageError, setImageError] = useState(false);
+    
+    return (
+      <TouchableOpacity style={styles.recipeCard} onPress={onPress}>
+        <Image 
+          source={{ uri: imageError ? 'https://via.placeholder.com/400x300?text=No+Image' : item.imageUrl }} 
+          style={styles.recipeImage}
+          resizeMode="cover"
+          onError={() => {
+            console.error('Image loading error for:', item.title);
+            setImageError(true);
+          }}
+        />
+        <View style={styles.recipeHeader}>
+          <Text style={styles.recipeCardTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Ionicons name="chevron-forward" size={24} color="#6FA35E" />
+        </View>
+        <View style={styles.recipePreview}>
+          <Text style={styles.recipePreviewText} numberOfLines={3}>
+            {item.ingredients.split('\n').slice(0, 3).join('\n')}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+      <LinearGradient
+        colors={['#FFFFFF', '#D4E9C7']}
+        style={styles.gradient}
       >
-        <View style={styles.header}>
-          <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
-          <Text style={styles.heading}>Virtual Fridge</Text>
-        </View>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.container}
+        >
+          <View style={styles.header}>
+            <Image 
+              source={require("@/assets/images/nomnomLogo.png")} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <View style={styles.headerCenter}>
+              <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
+              <Text style={styles.heading}>Virtual Fridge</Text>
+            </View>
+          </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Add an ingredient"
-            value={newIngredient}
-            onChangeText={setNewIngredient}
-            placeholderTextColor="#666"
-          />
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => {
-              if (newIngredient.trim()) {
-                setIngredients([...ingredients, newIngredient.trim()]);
-                setNewIngredient("");
-              }
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Add an ingredient"
+              value={newIngredient}
+              onChangeText={setNewIngredient}
+              placeholderTextColor="#666"
+              onSubmitEditing={handleAddIngredient}
+            />
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={handleAddIngredient}
+            >
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.ingredientsList}>
+            {ingredients.map((ingredient, index) => (
+              <View key={index} style={styles.ingredientItem}>
+                <Text style={styles.ingredientText}>{ingredient}</Text>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveIngredient(index)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#FF6B6B" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.findRecipesButton, loadingGPT && styles.findRecipesButtonDisabled]}
+              onPress={fetchRecipeFromIngredients}
+              disabled={loadingGPT}
+            >
+              {loadingGPT ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.findRecipesButtonText}>Find Recipes</Text>
+              )}
+            </TouchableOpacity>
+
+            {recipes.length > 0 && (
+              <View style={styles.recipesSection}>
+                <Text style={styles.sectionTitle}>Suggested Recipes</Text>
+                <FlatList
+                  data={recipes}
+                  numColumns={2}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <RecipeCard
+                      item={item}
+                      onPress={() => {
+                        setSelectedRecipe(item);
+                        setIsModalVisible(true);
+                      }}
+                    />
+                  )}
+                  contentContainerStyle={styles.recipeGrid}
+                />
+              </View>
+            )}
+          </ScrollView>
+
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={isModalVisible}
+            onRequestClose={() => {
+              setIsModalVisible(false);
+              setSelectedRecipe(null);
             }}
           >
-            <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.ingredientsList}>
-          {ingredients.map((ingredient, index) => (
-            <View key={index} style={styles.ingredientItem}>
-              <Text style={styles.ingredientText}>{ingredient}</Text>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => {
-                  setIngredients(ingredients.filter((_, i) => i !== index));
-                }}
-              >
-                <Ionicons name="close-circle" size={24} color="#FF6B6B" />
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          <TouchableOpacity
-            style={[styles.findRecipesButton, loadingGPT && styles.findRecipesButtonDisabled]}
-            onPress={fetchRecipeFromIngredients}
-            disabled={loadingGPT}
-          >
-            <Text style={styles.findRecipesButtonText}>
-              {loadingGPT ? "Loading..." : "Find Recipes"}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={isModalVisible}
-          onRequestClose={() => setIsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Recipe Suggestions</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setIsModalVisible(false)}
-                >
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.modalScroll}>
-                <View style={styles.recipeGrid}>
-                  {recipes.map((recipe, index) => (
-                    <View key={index} style={styles.recipeCard}>
-                      <TouchableOpacity 
-                        style={styles.recipeCardContent}
-                        onPress={() => {
-                          setSelectedDishRecipe(`${recipe.title}\n\n${recipe.ingredients}`);
-                        }}
-                      >
-                        <Text style={styles.recipeCardTitle} numberOfLines={2}>
-                          {recipe.title}
-                        </Text>
-                        <Text style={styles.recipeCardIngredients} numberOfLines={4}>
-                          {recipe.ingredients}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.saveIconButton}
-                        onPress={() => {
-                          setSelectedDishRecipe(`${recipe.title}\n\n${recipe.ingredients}`);
-                          saveRecipe();
-                        }}
-                      >
-                        <Ionicons name="bookmark-outline" size={24} color="#6FA35E" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Recipe Details</Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => {
+                      setIsModalVisible(false);
+                      setSelectedRecipe(null);
+                    }}
+                  >
+                    <Ionicons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
                 </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={!!selectedDishRecipe}
-          onRequestClose={() => setSelectedDishRecipe("")}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Recipe Details</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setSelectedDishRecipe("")}
-                >
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
+                <ScrollView style={styles.modalScroll}>
+                  {selectedRecipe && (
+                    <View style={styles.recipeItem}>
+                      <Image 
+                        source={{ uri: selectedRecipe.imageUrl }} 
+                        style={styles.modalImage}
+                        resizeMode="cover"
+                        onError={() => {
+                          console.error('Modal image loading error for:', selectedRecipe.title);
+                        }}
+                      />
+                      <Text style={styles.recipeTitle}>{selectedRecipe.title}</Text>
+                      <Text style={styles.recipeIngredients}>{selectedRecipe.ingredients}</Text>
+                    </View>
+                  )}
+                </ScrollView>
               </View>
-              <ScrollView style={styles.modalScroll}>
-                <Text style={styles.modalText}>{selectedDishRecipe}</Text>
-                <TouchableOpacity style={styles.saveButton} onPress={saveRecipe}>
-                  <Text style={styles.saveButtonText}>❤️ Save Recipe</Text>
-                </TouchableOpacity>
-              </ScrollView>
             </View>
-          </View>
-        </Modal>
-      </KeyboardAvoidingView>
+          </Modal>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
-// ------------------------
-//       STYLES
-// ------------------------
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#E8F5E1",
+  },
+  gradient: {
+    flex: 1,
   },
   container: {
     flex: 1,
-    backgroundColor: "#E8F5E1",
   },
   header: {
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 15,
     marginTop: Platform.OS === 'ios' ? 10 : 0,
@@ -258,6 +289,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    paddingHorizontal: 15,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginRight: 10,
   },
   heading: {
     fontSize: 36,
@@ -359,11 +400,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: "white",
+    backgroundColor: 'white',
     borderRadius: 20,
     padding: 20,
-    width: "90%",
-    maxHeight: "80%",
+    width: '90%',
+    maxHeight: '90%',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -387,76 +428,90 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   modalScroll: {
-    maxHeight: "80%",
+    flex: 1,
   },
-  recipeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    padding: 10,
-  },
-  recipeCard: {
-    width: '48%',
+  recipeItem: {
+    marginBottom: 20,
+    padding: 15,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recipesSection: {
+    marginTop: 20,
+    paddingHorizontal: 5,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2E7D32',
     marginBottom: 15,
+  },
+  recipeCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     overflow: 'hidden',
-    minHeight: 200,
+    margin: 8,
+    minHeight: 280,
   },
-  recipeCardContent: {
+  recipeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 12,
-    height: '100%',
+    backgroundColor: '#F8F8F8',
   },
   recipeCardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    color: '#2E7D32',
+    flex: 1,
+    marginRight: 8,
   },
-  recipeCardIngredients: {
-    fontSize: 14,
+  recipePreview: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  recipePreviewText: {
+    fontSize: 13,
     color: '#666',
-    lineHeight: 20,
+    lineHeight: 18,
   },
-  saveButton: {
-    backgroundColor: "#6FA35E",
-    borderRadius: 25,
-    padding: 15,
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  saveButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  modalText: {
+  recipeIngredients: {
     fontSize: 16,
+    color: '#333',
     lineHeight: 24,
-    color: "#333",
   },
-  saveIconButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  recipeGrid: {
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+  },
+  recipeImage: {
+    width: '100%',
+    height: 120,
+  },
+  modalImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+  recipeTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 20,
+    textAlign: 'center',
   },
 });

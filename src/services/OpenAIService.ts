@@ -63,26 +63,163 @@ export const getDishesFromIngredients = async (ingredients: string) => {
       messages: [
         {
           role: "user",
-          content: `Generate a detailed recipe based on these ingredients: ${ingredients}. 
+          content: `Generate 4 different recipes based on these ingredients: ${ingredients}. 
           
-          Format it like this:
-          - **Dish Name**
-          - **Serving Size**
-          - **Ingredients with exact measurements**
-          - **Step-by-step instructions**
-          - **Additional tips**
+          For each recipe, format it exactly like this:
+          -------------------
+          Recipe: [Dish Name]
+          [Detailed recipe content with ingredients and instructions]
+          Image URL: [URL will be added here]
+          -------------------
           
-          Keep the response clear and structured. Do NOT include extra commentary, just return the formatted recipe.`,
+          Keep the response clear and structured. Each recipe should be separated by the dashed line.
+          Focus on using the provided ingredients creatively.`,
         },
       ],
-      max_tokens: 800, // Increased for more content
-      temperature: 0.7, // Keeps it concise but creative
+      max_tokens: 1500,
+      temperature: 0.7,
     });
 
-    return response.data.choices?.[0]?.message?.content || "No detailed recipe found.";
+    const recipes = response.data.choices?.[0]?.message?.content || "";
+    
+    // Generate images for each recipe sequentially
+    const recipeBlocks = recipes.split('-------------------').filter((block: string) => block.trim());
+    const recipesWithImages = [];
+    
+    for (const block of recipeBlocks) {
+      try {
+        const titleLine = block.split('\n').find((line: string) => line.startsWith('Recipe:'));
+        const title = titleLine ? titleLine.replace('Recipe:', '').trim() : '';
+        
+        // Generate image for the recipe
+        const dalleResponse = await openAI.post("/images/generations", {
+          model: "dall-e-3",
+          prompt: `A professional food photography of ${title}, high quality, well-lit, appetizing, using the ingredients: ${ingredients}`,
+          n: 1,
+          size: "1024x1024",
+          quality: "standard",
+        });
+
+        const imageUrl = dalleResponse.data.data?.[0]?.url;
+        if (!imageUrl) {
+          console.error("No image URL generated for recipe:", title);
+          recipesWithImages.push(block.replace('Image URL: [URL will be added here]', 'Image URL: https://via.placeholder.com/400x300?text=No+Image'));
+        } else {
+          recipesWithImages.push(block.replace('Image URL: [URL will be added here]', `Image URL: ${imageUrl}`));
+        }
+        
+        // Add a delay between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error("Error generating image for recipe:", error);
+        recipesWithImages.push(block.replace('Image URL: [URL will be added here]', 'Image URL: https://via.placeholder.com/400x300?text=No+Image'));
+      }
+    }
+
+    return recipesWithImages.join('\n-------------------\n');
   } catch (error) {
     console.error("Error fetching detailed recipe:", error);
     return "Failed to fetch detailed recipe.";
+  }
+};
+
+export const generateRecipeWithImage = async (cuisine: string) => {
+  try {
+    const response = await openAI.post("/chat/completions", {
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: `Generate a detailed recipe for a ${cuisine} dish. Include:
+          - Title
+          - Cooking time
+          - Rating (1-5)
+          - Brief description
+          - List of ingredients with measurements
+          - Step-by-step instructions
+          - Number of servings
+          - Difficulty level (Easy/Medium/Hard)
+          
+          Return ONLY a JSON object with these exact keys, no markdown formatting or additional text:
+          {
+            "title": "",
+            "time": "",
+            "rating": 0,
+            "description": "",
+            "ingredients": [],
+            "instructions": [],
+            "servings": "",
+            "difficulty": ""
+          }`
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7,
+    });
+
+    // Clean the response to remove any markdown formatting
+    const content = response.data.choices?.[0]?.message?.content || "{}";
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    const recipeData = JSON.parse(cleanContent);
+    
+    // Generate an image for the recipe
+    const dalleResponse = await openAI.post("/images/generations", {
+      model: "dall-e-3",
+      prompt: `A professional food photography of ${recipeData.title}, ${cuisine} cuisine, high quality, well-lit, appetizing`,
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+    });
+
+    const imageUrl = dalleResponse.data.data?.[0]?.url;
+    if (!imageUrl) throw new Error("No image generated");
+
+    return {
+      ...recipeData,
+      image: imageUrl
+    };
+  } catch (error) {
+    console.error("Error generating recipe:", error);
+    return null;
+  }
+};
+
+export const generateTrendingRecipes = async () => {
+  try {
+    const cuisines = ['Italian', 'Mexican', 'Japanese', 'Indian', 'Mediterranean', 'Thai', 'Chinese', 'American'];
+    const randomCuisines = cuisines.sort(() => 0.5 - Math.random()).slice(0, 4);
+    
+    // Generate recipes sequentially to avoid rate limiting
+    const recipes = [];
+    for (const cuisine of randomCuisines) {
+      try {
+        const recipe = await generateRecipeWithImage(cuisine);
+        if (recipe) {
+          recipes.push(recipe);
+        }
+        // Add a delay between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error(`Error generating recipe for ${cuisine}:`, error);
+        // Add a placeholder recipe if generation fails
+        recipes.push({
+          title: `${cuisine} Delight`,
+          time: "30 mins",
+          rating: 4,
+          description: "A delicious dish that couldn't be generated at this time.",
+          ingredients: ["Ingredients not available"],
+          instructions: ["Instructions not available"],
+          servings: "4",
+          difficulty: "Medium",
+          image: "https://via.placeholder.com/400x300?text=Recipe+Unavailable"
+        });
+      }
+    }
+
+    return recipes;
+  } catch (error) {
+    console.error("Error generating trending recipes:", error);
+    return [];
   }
 };
 
