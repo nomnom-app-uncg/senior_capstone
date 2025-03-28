@@ -2,7 +2,7 @@
 import axios from "axios";
 import * as FileSystem from "expo-file-system";
 
-const API_KEY = "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";
+const API_KEY = "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";
 
 const openAI = axios.create({
   baseURL: "https://api.openai.com/v1",
