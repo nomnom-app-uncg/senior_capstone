@@ -14,28 +14,33 @@ import { LinearGradient } from "expo-linear-gradient";
 import ImageToGPTScreen from "./GPTScreen";
 import CulinaryChatScreen from "./CulinaryChatScreen";
 import FloatingNav from "@/components/FloatingNav";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 export default function CulinaryHubScreen() {
   const [activeTab, setActiveTab] = useState<"scan" | "chat">("scan");
 
   return (
-    <LinearGradient
-      colors={["#98D67D", "#E8F5E1"]}
-      style={styles.gradientContainer}
-    >
-      <SafeAreaView style={styles.container}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <Image
-            source={require("@/assets/images/nomnomLogo.png")}
-            style={styles.logo}
-          />
-        </View>
-
-        <KeyboardAvoidingView
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient
+        colors={['#FFFFFF', '#D4E9C7']}
+        style={styles.gradient}
+      >
+        <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.flexContainer}
+          style={styles.container}
         >
+          <View style={styles.header}>
+            <Image 
+              source={require("@/assets/images/nomnomLogo.png")} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <View style={styles.headerCenter}>
+              <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
+              <Text style={styles.heading}>Culinary Hub</Text>
+            </View>
+          </View>
+
           {/* Toggle Buttons (Scan vs Chat) */}
           <View style={styles.toggleContainer}>
             <TouchableOpacity
@@ -77,35 +82,67 @@ export default function CulinaryHubScreen() {
           <View style={styles.contentContainer}>
             {activeTab === "scan" ? <ImageToGPTScreen /> : <CulinaryChatScreen />}
           </View>
-        </KeyboardAvoidingView>
 
-        {/* Floating Bottom Nav */}
-        <FloatingNav />
-      </SafeAreaView>
-    </LinearGradient>
+          {/* Floating Bottom Nav */}
+          <FloatingNav />
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  gradientContainer: {
+  safeArea: {
+    flex: 1,
+  },
+  gradient: {
     flex: 1,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  flexContainer: {
-    flex: 1,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingBottom: 15,
+    marginTop: Platform.OS === 'ios' ? 10 : 0,
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    paddingHorizontal: 15,
+    position: 'relative',
   },
-  logoContainer: {
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
+  headerCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
   },
   logo: {
-    width: 120,
-    height: 60,
-    resizeMode: "contain",
+    width: 100,
+    height: 100,
+    marginRight: 10,
+    zIndex: 2,
+  },
+  heading: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#2E7D32",
+    marginTop: 10,
+    textShadowColor: 'rgba(110, 163, 94, 0.5)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 6,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   toggleContainer: {
     flexDirection: "row",
@@ -117,16 +154,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 25,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
     marginHorizontal: 8,
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    backgroundColor: 'transparent',
   },
   activeButton: {
-    backgroundColor: "rgba(152, 214, 125, 0.8)",
+    backgroundColor: "#6FA35E",
     shadowOpacity: 0.15,
   },
   toggleButtonText: {
@@ -135,18 +172,11 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   activeText: {
-    color: "#000",
+    color: "#FFFFFF",
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: 20,
-    padding: 15,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: 'transparent',
   },
 });

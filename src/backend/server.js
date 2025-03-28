@@ -6,10 +6,44 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload an image.'), false);
+    }
+  }
+});
 
 // MySQL Database Connection
 const db = mysql.createConnection({
@@ -101,7 +135,7 @@ app.get("/profile", (req, res) => {
     const userId = decoded.user_id;
 
     // Query the DB for this user's info
-    const sql = "SELECT user_id, username, email FROM users WHERE user_id = ?";
+    const sql = "SELECT user_id, username, email, profilePic FROM users WHERE user_id = ?";
     db.query(sql, [userId], (err, results) => {
       if (err) {
         console.error("Database error:", err);
@@ -199,6 +233,52 @@ app.put("/changePassword", async (req, res) => {
   }
 });
 
+// Update profile picture
+app.post("/updateProfilePicture", upload.single('image'), async (req, res) => {
+  try {
+    console.log('Received profile picture update request');
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      console.log('No auth header found');
+      return res.status(401).json({ error: "No token provided" });
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    if (!req.file) {
+      console.log('No file received');
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    console.log('File received:', req.file);
+    const imagePath = req.file.path;
+    const imageUrl = `http://localhost:3000/uploads/${path.basename(imagePath)}`;
+
+    // Update user's image in database
+    const sql = "UPDATE users SET profilePic = ? WHERE user_id = ?";
+    db.query(sql, [imageUrl, userId], (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      console.log('Profile picture updated successfully:', imageUrl);
+      res.json({ message: "Profile picture updated successfully", image: imageUrl });
+    });
+  } catch (error) {
+    console.error("Error in /updateProfilePicture:", error);
+    return res.status(500).json({ message: "Error processing profile picture update" });
+  }
+});
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
 
 // Start Server
 app.listen(3000, "0.0.0.0", () => {

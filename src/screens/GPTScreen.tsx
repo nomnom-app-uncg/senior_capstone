@@ -14,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { analyzeImageWithGPT } from "@/services/OpenAIService";
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ImageToGPTScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -124,11 +125,6 @@ export default function ImageToGPTScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Camera Icon */}
-      <View style={styles.cameraIconContainer}>
-        <Ionicons name="camera-outline" size={36} color="#6FA35E" />
-      </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -137,27 +133,61 @@ export default function ImageToGPTScreen() {
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Big Green Buttons for picking images */}
-          <TouchableOpacity style={styles.bigGreenButton} onPress={pickImageGallery}>
-            <Text style={styles.buttonText}>Pick From Gallery</Text>
-          </TouchableOpacity>
+          {/* Welcome Section */}
+          <View style={styles.welcomeSection}>
+            <Text style={styles.welcomeTitle}>Food Analysis</Text>
+            <Text style={styles.welcomeSubtitle}>Upload a photo to get started</Text>
+          </View>
 
-          <TouchableOpacity style={styles.bigGreenButton} onPress={startCamera}>
-            <Text style={styles.buttonText}>Take a Picture</Text>
-          </TouchableOpacity>
+          {/* Big Green Buttons for picking images */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={[styles.bigGreenButton, styles.galleryButton]} 
+              onPress={pickImageGallery}
+            >
+              <View style={styles.buttonContent}>
+                <Ionicons name="images-outline" size={32} color="#FFFFFF" />
+                <Text style={styles.buttonText}>Pick From Gallery</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.bigGreenButton, styles.cameraButton]} 
+              onPress={startCamera}
+            >
+              <View style={styles.buttonContent}>
+                <Ionicons name="camera-outline" size={32} color="#FFFFFF" />
+                <Text style={styles.buttonText}>Take a Picture</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Display Picked Image */}
           {imageUri && (
             <View style={styles.imageContainer}>
               <Image source={{ uri: imageUri }} style={styles.image} />
+              <View style={styles.imageOverlay}>
+                <TouchableOpacity 
+                  style={styles.retakeButton}
+                  onPress={() => setImageUri(null)}
+                >
+                  <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
+                  <Text style={styles.retakeText}>Retake</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
           {/* Analysis Section */}
           {analysisResult && (
             <View style={styles.analysisContainer}>
-              <Text style={styles.analysisTitle}>Analysis:</Text>
-              <Text style={styles.analysisDescription}>{analysisResult}</Text>
+              <View style={styles.analysisHeader}>
+                <Ionicons name="analytics-outline" size={24} color="#6FA35E" />
+                <Text style={styles.analysisTitle}>Analysis</Text>
+              </View>
+              <View style={styles.analysisContent}>
+                <Text style={styles.analysisDescription}>{analysisResult}</Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -169,7 +199,7 @@ export default function ImageToGPTScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E8F5E1",
+    backgroundColor: 'transparent',
   },
   cameraContainer: {
     flex: 1,
@@ -195,21 +225,137 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   buttonContainer: {
-    position: 'absolute',
-    bottom: 50,
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 15,
+  },
+  bigGreenButton: {
+    flex: 1,
+    height: 120,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  galleryButton: {
+    backgroundColor: '#4CAF50',
+  },
+  cameraButton: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonContent: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  imageContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  image: {
     width: '100%',
+    height: 300,
+    resizeMode: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  retakeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 5,
+  },
+  retakeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  analysisContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  analysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 15,
+  },
+  analysisTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+  },
+  analysisContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 15,
+    padding: 15,
+  },
+  analysisDescription: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  scrollContainer: {
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  welcomeSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 8,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   toggleButton: {
     backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 20,
-    flex: 1,
-    marginHorizontal: 10,
-  },
-  captureButton: {
-    backgroundColor: 'blue',
     padding: 12,
     borderRadius: 20,
     flex: 1,
@@ -220,82 +366,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  captureButton: {
+    backgroundColor: 'blue',
+    padding: 12,
+    borderRadius: 20,
+    flex: 1,
+    marginHorizontal: 10,
+  },
   captureText: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  cameraIconContainer: {
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    alignItems: "center",
-    padding: 20,
-    paddingBottom: 40,
-  },
-  bigGreenButton: {
-    width: "100%",
-    backgroundColor: "rgba(152, 214, 125, 0.8)",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    marginVertical: 8,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    color: "#000000",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  imageContainer: {
-    width: "100%",
-    aspectRatio: 1,
-    marginTop: 20,
-    borderRadius: 15,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
-  },
-  analysisContainer: {
-    width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 15,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  analysisTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#000000",
-  },
-  analysisDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#333333",
   },
 });
