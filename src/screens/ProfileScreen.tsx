@@ -19,6 +19,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from 'expo-image-picker';
+import { API_URL } from "../constants/config";//IP address 
 
 interface UserData {
   username: string;
@@ -46,6 +47,7 @@ export default function ProfileScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const router = useRouter();
 
+
   useEffect(() => {
     fetchUserData();
     fetchFavorites();
@@ -59,7 +61,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      const response = await fetch("http://localhost:3000/profile", {
+        const response = await fetch(`${API_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -89,7 +91,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
 
-      const response = await fetch("http://localhost:3000/savedRecipes", {
+        const response = await fetch(`${API_URL}/savedRecipe` , {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -110,7 +112,7 @@ export default function ProfileScreen() {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (token) {
-        await fetch("http://localhost:3000/logout", {
+          await fetch(`${BASE_URL}/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -130,7 +132,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
 
-      const response = await fetch("http://localhost:3000/changePassword", {
+        const response = await fetch(`${API_URL}/changePassword`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -159,7 +161,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
 
-      const response = await fetch("http://localhost:3000/deleteAccount", {
+        const response = await fetch(`${API_URL}/deleteAccount`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -185,7 +187,7 @@ export default function ProfileScreen() {
       if (!token) return;
 
       const response = await fetch(
-        `http://localhost:3000/savedRecipes/${recipeId}`,
+          `${ API_URL } / savedRecipes / ${ recipeId }`,
         {
           method: "DELETE",
           headers: {
@@ -249,9 +251,9 @@ export default function ProfileScreen() {
         } as any);
       }
 
-      console.log('Uploading image to:', "http://localhost:3000/updateProfilePicture");
+        console.log('Uploading image to:', `${API_URL}/updateProfilePicture`);
       
-      const response = await fetch("http://localhost:3000/updateProfilePicture", {
+        const response = await fetch(`${API_URL}/updateProfilePicture`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
