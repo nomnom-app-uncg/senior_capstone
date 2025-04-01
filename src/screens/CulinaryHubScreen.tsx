@@ -13,7 +13,6 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import ImageToGPTScreen from "./GPTScreen";
 import CulinaryChatScreen from "./CulinaryChatScreen";
-import FloatingNav from "@/components/FloatingNav";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 export default function CulinaryHubScreen() {
@@ -30,14 +29,16 @@ export default function CulinaryHubScreen() {
           style={styles.container}
         >
           <View style={styles.header}>
-            <Image 
-              source={require("@/assets/images/nomnomLogo.png")} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <View style={styles.headerCenter}>
-              <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
-              <Text style={styles.heading}>Culinary Hub</Text>
+            <View style={styles.headerContent}>
+              <Image 
+                source={require("@/assets/images/nomnomLogo.png")} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <View style={styles.headerCenter}>
+                <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
+                <Text style={styles.heading}>Culinary Hub</Text>
+              </View>
             </View>
           </View>
 
@@ -82,9 +83,6 @@ export default function CulinaryHubScreen() {
           <View style={styles.contentContainer}>
             {activeTab === "scan" ? <ImageToGPTScreen /> : <CulinaryChatScreen />}
           </View>
-
-          {/* Floating Bottom Nav */}
-          <FloatingNav />
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
@@ -102,8 +100,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 15,
     marginTop: Platform.OS === 'ios' ? 10 : 0,
@@ -116,21 +112,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 15,
-    position: 'relative',
   },
   headerCenter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+    flex: 1,
     alignItems: 'center',
-    zIndex: 1,
+    marginLeft: 10,
   },
   logo: {
-    width: 100,
-    height: 100,
-    marginRight: 10,
-    zIndex: 2,
+    width: 80,
+    height: 80,
   },
   heading: {
     fontSize: 36,

@@ -7,6 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { API_URL } from '@/constants/config';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -23,6 +25,7 @@ export default function RootLayout() {
 
   const [checkingToken, setCheckingToken] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [tokenError, setTokenError] = useState(false);
 
   // Once fonts are loaded, hide splash
   useEffect(() => {
@@ -36,18 +39,71 @@ export default function RootLayout() {
     (async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        setIsLoggedIn(!!token);
+        if (token) {
+          try {
+            // Verify token is valid by making a test request
+            const response = await fetch(`${API_URL}/profile`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            
+            if (response.ok) {
+              setIsLoggedIn(true);
+            } else {
+              // Token is invalid, clear it
+              await AsyncStorage.removeItem('userToken');
+              setIsLoggedIn(false);
+            }
+          } catch (fetchError) {
+            console.error('Error validating token with server:', fetchError);
+            // If we can't reach the server, still consider the user logged in
+            setIsLoggedIn(true);
+          }
+        } else {
+          setIsLoggedIn(false);
+        }
       } catch (error) {
         console.error('Error reading token:', error);
+        setTokenError(true);
+        setIsLoggedIn(false);
       } finally {
         setCheckingToken(false);
       }
     })();
   }, []);
 
-  // Wait until fonts + token check
+  // Show loading state while checking token
   if (!fontsLoaded || checkingToken) {
-    return null; // or a loading indicator
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#6FA35E" />
+      </View>
+    );
+  }
+
+  // Show error state if token validation failed
+  if (tokenError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'red', marginBottom: 20 }}>
+          Error validating login status. Please try again.
+        </Text>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#6FA35E',
+            padding: 15,
+            borderRadius: 8,
+          }}
+          onPress={() => {
+            setTokenError(false);
+            setCheckingToken(true);
+          }}
+        >
+          <Text style={{ color: 'white' }}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (

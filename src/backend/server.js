@@ -11,6 +11,15 @@ const path = require("path");
 const fs = require("fs");
 const OpenAI = require("openai");
 
+// Validate required environment variables
+const requiredEnvVars = ['UNSPLASH_ACCESS_KEY', 'OPENAI_API_KEY'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Error: ${envVar} is not set in environment variables`);
+    process.exit(1);
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -253,22 +262,21 @@ app.post("/updateProfilePicture", upload.single('image'), async (req, res) => {
     }
 
     console.log('File received:', req.file);
-    const imagePath = req.file.path;
-    const imageUrl = `http://localhost:3000/uploads/${path.basename(imagePath)}`;
+    const filename = req.file.filename;
 
-    // Update user's image in database
-    const sql = "UPDATE users SET profilePic = ? WHERE user_id = ?";
-    db.query(sql, [imageUrl, userId], (err, result) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({ error: "Database error" });
-      }
-      console.log('Profile picture updated successfully:', imageUrl);
-      res.json({ message: "Profile picture updated successfully", image: imageUrl });
-    });
+    // Update user's profile picture in database
+    const imageUrl = `/uploads/${filename}`;
+    await db.query(
+      "UPDATE users SET profile_pic = ? WHERE id = ?",
+      [imageUrl, userId]
+    );
+
+    // Return the full URL for the image
+    const fullImageUrl = `${req.protocol}://${req.hostname}:${process.env.PORT || 3000}${imageUrl}`;
+    res.json({ image: fullImageUrl });
   } catch (error) {
-    console.error("Error in /updateProfilePicture:", error);
-    return res.status(500).json({ message: "Error processing profile picture update" });
+    console.error("Error updating profile picture:", error);
+    res.status(500).json({ error: "Failed to update profile picture" });
   }
 });
 
@@ -413,20 +421,29 @@ app.post("/generateRecipe", async (req, res) => {
     const recipe = JSON.parse(recipeText);
     
     // Use Unsplash API for image search instead of DALL-E
-    const unsplashResponse = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(recipe.title)}&per_page=1`,
-      {
-        headers: {
-          'Authorization': `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+    try {
+      const unsplashResponse = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(recipe.title)}&per_page=1`,
+        {
+          headers: {
+            'Authorization': `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+          }
         }
+      );
+      
+      if (!unsplashResponse.ok) {
+        throw new Error(`Unsplash API error: ${unsplashResponse.status}`);
       }
-    );
-    
-    const imageData = await unsplashResponse.json();
-    if (imageData.results && imageData.results.length > 0) {
-      recipe.image = imageData.results[0].urls.regular;
-    } else {
-      recipe.image = null; // Fallback if no image found
+      
+      const imageData = await unsplashResponse.json();
+      if (imageData.results && imageData.results.length > 0) {
+        recipe.image = imageData.results[0].urls.regular;
+      } else {
+        recipe.image = "https://via.placeholder.com/400x300?text=No+Image+Available";
+      }
+    } catch (unsplashError) {
+      console.error("Error fetching image from Unsplash:", unsplashError);
+      recipe.image = "https://via.placeholder.com/400x300?text=No+Image+Available";
     }
     
     recipe.rating = (Math.random() * 2 + 3).toFixed(1); // Random rating between 3-5

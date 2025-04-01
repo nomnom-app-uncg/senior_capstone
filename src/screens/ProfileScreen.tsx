@@ -57,11 +57,13 @@ export default function ProfileScreen() {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) {
+        console.log("No token found, redirecting to login");
         router.replace("/login");
         return;
       }
 
-        const response = await fetch(`${API_URL}/profile`, {
+      console.log('Fetching profile data from:', `${API_URL}/profile`);
+      const response = await fetch(`${API_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -69,18 +71,41 @@ export default function ProfileScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched user data:', data);
+        console.log('Raw user data:', data);
         setUserData(data);
         if (data.profilePic) {
-          console.log('Setting profile image:', data.profilePic);
-          setProfileImage(data.profilePic);
+          console.log('Original profile image URL:', data.profilePic);
+          // Ensure the image URL is properly formatted for both web and mobile
+          let imageUrl = data.profilePic;
+          if (!imageUrl.startsWith('http')) {
+            // If it's a relative path, prepend the API_URL
+            imageUrl = `${API_URL}${imageUrl}`;
+            console.log('Prepending API_URL:', imageUrl);
+          }
+          // For mobile, ensure we're using the correct protocol
+          if (Platform.OS !== 'web') {
+            imageUrl = imageUrl.replace('http://', 'https://');
+            console.log('Converting to HTTPS for mobile:', imageUrl);
+          }
+          console.log('Final image URL being set:', imageUrl);
+          setProfileImage(imageUrl);
+        } else {
+          console.log('No profile picture found in user data');
         }
-      } else {
+      } else if (response.status === 401) {
+        // Only redirect to login if we get a 401 (unauthorized) response
+        console.log("Token expired or invalid, redirecting to login");
+        await AsyncStorage.removeItem("userToken");
         router.replace("/login");
+      } else {
+        // For other errors, just show an error message
+        console.error("Error fetching profile:", response.status);
+        Alert.alert("Error", "Failed to load profile data. Please try again.");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
-      router.replace("/login");
+      // Don't redirect on network errors, just show a message
+      Alert.alert("Error", "Failed to load profile data. Please check your connection and try again.");
     } finally {
       setIsLoadingUserData(false);
     }
@@ -110,15 +135,6 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (token) {
-          await fetch(`${BASE_URL}/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
       await AsyncStorage.removeItem("userToken");
       await AsyncStorage.removeItem("userData");
       router.replace("/login");
@@ -187,7 +203,7 @@ export default function ProfileScreen() {
       if (!token) return;
 
       const response = await fetch(
-          `${ API_URL } / savedRecipes / ${ recipeId }`,
+        `${API_URL}/savedRecipes/${recipeId}`,
         {
           method: "DELETE",
           headers: {
@@ -237,23 +253,36 @@ export default function ProfileScreen() {
   const updateProfilePicture = async (imageData: string | Blob) => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-      if (!token) return;
+      if (!token) {
+        console.log('No token found for profile picture update');
+        return;
+      }
 
+      console.log('Starting profile picture update...');
       // Create form data
       const formData = new FormData();
       if (Platform.OS === 'web' && imageData instanceof Blob) {
         formData.append('image', imageData, 'profile-picture.jpg');
+        console.log('Web platform: Using blob data');
       } else {
+        // For mobile, we need to handle the file path correctly
+        const imageUri = typeof imageData === 'string' ? imageData : '';
+        console.log('Mobile platform: Image URI:', imageUri);
+        const filename = imageUri.split('/').pop() || 'profile-picture.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+
         formData.append('image', {
-          uri: typeof imageData === 'string' ? imageData.replace('file://', '') : '',
-          type: 'image/jpeg',
-          name: 'profile-picture.jpg',
+          uri: Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri,
+          type,
+          name: filename,
         } as any);
+        console.log('Mobile platform: Form data created with type:', type);
       }
 
-        console.log('Uploading image to:', `${API_URL}/updateProfilePicture`);
+      console.log('Uploading to:', `${API_URL}/updateProfilePicture`);
       
-        const response = await fetch(`${API_URL}/updateProfilePicture`, {
+      const response = await fetch(`${API_URL}/updateProfilePicture`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -264,11 +293,14 @@ export default function ProfileScreen() {
       });
 
       const data = await response.json();
+      console.log('Server response:', data);
       
       if (response.ok) {
-        console.log('Upload successful:', data);
-        setProfileImage(data.image);
-        setUserData(prev => prev ? { ...prev, profilePic: data.image } : null);
+        console.log('Upload successful, new image URL:', data.image);
+        // Update the profile image state with the new URL
+        const imageUrl = data.image;
+        setProfileImage(imageUrl);
+        setUserData(prev => prev ? { ...prev, profilePic: imageUrl } : null);
         Alert.alert("Success", "Profile picture updated successfully");
       } else {
         console.error('Upload failed:', data);
