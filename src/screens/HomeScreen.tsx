@@ -14,7 +14,9 @@ import {
   Animated,
   Easing,
   FlatList,
-  Modal
+  Modal,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from '@/components/ThemedText';
@@ -24,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { BlurView } from 'expo-blur';
 import { generateRecipeWithImage, generateTrendingRecipes } from "@/services/OpenAIService";
+import { useRouter, RelativePathString } from "expo-router";
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +41,8 @@ interface CategoryItemProps {
   icon: string;
   label: string;
   color: string;
+  onPress: () => void;
+  isLoading?: boolean;
 }
 
 interface RecipeCardProps {
@@ -124,10 +129,22 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, ind
   );
 };
 
-const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color }) => (
-  <TouchableOpacity style={styles.categoryItem}>
-    <View style={[styles.categoryIcon, { backgroundColor: color }]}>
-      <Ionicons name={icon} size={24} color="white" />
+const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color, onPress, isLoading }) => (
+  <TouchableOpacity 
+    style={styles.categoryItem} 
+    onPress={onPress}
+    disabled={isLoading}
+  >
+    <View style={[
+      styles.categoryIcon, 
+      { backgroundColor: color },
+      isLoading && styles.categoryIconLoading
+    ]}>
+      {isLoading ? (
+        <ActivityIndicator color="white" size="small" />
+      ) : (
+        <Ionicons name={icon} size={24} color="white" />
+      )}
     </View>
     <Text style={styles.categoryLabel}>{label}</Text>
   </TouchableOpacity>
@@ -157,6 +174,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onP
 );
 
 const HomeScreen: React.FC = () => {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [trendingRecipes, setTrendingRecipes] = useState<TrendingRecipe[]>([]);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
@@ -164,12 +182,15 @@ const HomeScreen: React.FC = () => {
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleTranslateY = useRef(new Animated.Value(20)).current;
   const [selectedRecipe, setSelectedRecipe] = useState<TrendingRecipe | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryLoading, setCategoryLoading] = useState<string | null>(null);
 
   const categories = useMemo(() => [
-    { icon: 'pizza-outline', label: 'Main Dish', color: '#FF6B6B' },
-    { icon: 'cafe-outline', label: 'Breakfast', color: '#4ECDC4' },
-    { icon: 'ice-cream-outline', label: 'Dessert', color: '#FFD93D' },
-    { icon: 'wine-outline', label: 'Drinks', color: '#6C5CE7' },
+    { icon: 'sunny-outline', label: 'Breakfast', color: '#FFB74D' },
+    { icon: 'cafe-outline', label: 'Brunch', color: '#81C784' },
+    { icon: 'restaurant-outline', label: 'Lunch', color: '#4FC3F7' },
+    { icon: 'moon-outline', label: 'Dinner', color: '#7986CB' },
+    { icon: 'ice-cream-outline', label: 'Dessert', color: '#FF8A65' },
   ], []);
 
   const fetchTrendingRecipes = async () => {
@@ -185,6 +206,39 @@ const HomeScreen: React.FC = () => {
       console.error("Error fetching trending recipes:", error);
     } finally {
       setIsLoadingRecipes(false);
+    }
+  };
+
+  const handleCategoryPress = async (category: string) => {
+    setCategoryLoading(category);
+    try {
+      const prompt = `Generate a simple recipe for ${category}. Include a title, ingredients list, and basic instructions. Format it as JSON with the following structure:
+      {
+        "title": "Recipe Title",
+        "ingredients": ["ingredient 1", "ingredient 2", ...],
+        "instructions": ["step 1", "step 2", ...],
+        "time": "30 mins",
+        "difficulty": "Easy",
+        "servings": "2 servings"
+      }`;
+
+      const response = await fetch('http://localhost:3000/generateRecipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+      if (data.recipe) {
+        setSelectedRecipe(data.recipe);
+      }
+    } catch (error) {
+      console.error('Error generating recipe:', error);
+      Alert.alert('Error', 'Failed to generate recipe. Please try again.');
+    } finally {
+      setCategoryLoading(null);
     }
   };
 
@@ -337,20 +391,18 @@ const HomeScreen: React.FC = () => {
               <ThemedText type="subtitle" style={styles.sectionTitle}>
                 Explore Categories
               </ThemedText>
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={categories}
-                renderItem={({ item }) => (
+              <View style={styles.categoriesContainer}>
+                {categories.map((item) => (
                   <CategoryItem
+                    key={item.label}
                     icon={item.icon}
                     label={item.label}
                     color={item.color}
+                    onPress={() => handleCategoryPress(item.label)}
+                    isLoading={categoryLoading === item.label}
                   />
-                )}
-                keyExtractor={(item) => item.label}
-                contentContainerStyle={styles.categoriesList}
-              />
+                ))}
+              </View>
             </View>
 
             {/* Welcome Section with enhanced styling */}
@@ -380,24 +432,8 @@ const HomeScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <View style={styles.quickActions}>
-              <TouchableOpacity style={styles.quickActionButton}>
-                <Ionicons name="scan-outline" size={24} color="#FFF" />
-                <Text style={styles.quickActionText}>Scan Recipe</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionButton}>
-                <Ionicons name="camera-outline" size={24} color="#FFF" />
-                <Text style={styles.quickActionText}>Take Photo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionButton}>
-                <Ionicons name="search-outline" size={24} color="#FFF" />
-                <Text style={styles.quickActionText}>Search</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Trending Recipes */}
-            <View style={styles.trendingSection}>
+                        {/* Trending Recipes */}
+                        <View style={styles.trendingSection}>
               <View style={styles.trendingHeader}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
                   Recipe of the Day
@@ -442,36 +478,66 @@ const HomeScreen: React.FC = () => {
               )}
             </View>
 
+            {/* Quick Actions */}
+            <View style={styles.quickActions}>
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => router.push("/culinaryhub" as RelativePathString)}
+              >
+                <Ionicons name="scan-outline" size={24} color="#FFF" />
+                <Text style={styles.quickActionText}>Scan Recipe</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => router.push("/culinaryhub" as RelativePathString)}
+              >
+                <Ionicons name="camera-outline" size={24} color="#FFF" />
+                <Text style={styles.quickActionText}>Take Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.quickActionButton}
+                onPress={() => router.push("/fridgeScreen" as RelativePathString)}
+              >
+                <Ionicons name="search-outline" size={24} color="#FFF" />
+                <Text style={styles.quickActionText}>Search</Text>
+              </TouchableOpacity>
+            </View>
+
+
             {/* Features Section with enhanced styling */}
             <View style={styles.featureSection}>
               <ThemedText type="subtitle" style={styles.sectionTitle}>
                 Features
               </ThemedText>
               <View style={styles.featureContainer}>
-                <FeatureCard
-                  icon="restaurant-outline"
-                  title="Virtual Fridge"
-                  description="Keep track of your ingredients"
-                  index={0}
-                />
-                <FeatureCard
-                  icon="camera-outline"
-                  title="Recipe Analysis"
-                  description="Get instant recipe suggestions"
-                  index={1}
-                />
-                <FeatureCard
-                  icon="chatbubbles-outline"
-                  title="AI Chef Chat"
-                  description="Chat with our AI chef"
-                  index={2}
-                />
-                <FeatureCard
-                  icon="heart-outline"
-                  title="Save Favorites"
-                  description="Build your recipe collection"
-                  index={3}
-                />
+                <View style={styles.featureRow}>
+                  <FeatureCard
+                    icon="restaurant-outline"
+                    title="Virtual Fridge"
+                    description="Keep track of your ingredients"
+                    index={0}
+                  />
+                  <FeatureCard
+                    icon="camera-outline"
+                    title="Recipe Analysis"
+                    description="Get instant recipe suggestions"
+                    index={1}
+                  />
+                </View>
+                <View style={styles.featureRow}>
+                  <FeatureCard
+                    icon="chatbubbles-outline"
+                    title="AI Chef Chat"
+                    description="Chat with our AI chef"
+                    index={2}
+                  />
+                  <FeatureCard
+                    icon="heart-outline"
+                    title="Save Favorites"
+                    description="Build your recipe collection"
+                    index={3}
+                  />
+                </View>
               </View>
             </View>
 
@@ -576,6 +642,9 @@ const styles = StyleSheet.create({
   },
   featureSection: {
     marginBottom: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
   },
   sectionTitle: {
     fontSize: 24,
@@ -585,18 +654,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   featureContainer: {
+    width: '100%',
+    maxWidth: 600,
+    gap: 15,
+    alignItems: 'center',
+  },
+  featureRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    width: '100%',
     gap: 15,
   },
   featureCard: {
-    width: width * 0.43,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    flex: 1,
+    width: (width - 55) / 2,
+    height: 180,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 15,
-    padding: 15,
+    padding: 20,
     alignItems: 'center',
-    marginBottom: 15,
+    justifyContent: 'center',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -604,17 +681,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   featureTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#2E7D32',
-    marginTop: 10,
-    marginBottom: 5,
+    marginTop: 12,
+    marginBottom: 8,
     textAlign: 'center',
   },
   featureText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
     textAlign: 'center',
+    lineHeight: 20,
   },
   getStartedSection: {
     alignItems: 'center',
@@ -639,19 +717,26 @@ const styles = StyleSheet.create({
   },
   categoriesSection: {
     marginBottom: 30,
+    alignItems: 'center',
+    width: '100%',
   },
-  categoriesList: {
-    paddingHorizontal: 20,
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 15,
+    paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 500,
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: 20,
+    width: 80,
   },
   categoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 55,
+    height: 55,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -662,7 +747,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   categoryLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#333',
     fontWeight: '600',
   },
@@ -671,13 +756,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 30,
     paddingHorizontal: 20,
+    gap: 10,
   },
   quickActionButton: {
     backgroundColor: '#6FA35E',
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
-    width: width * 0.28,
+    flex: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -686,7 +772,7 @@ const styles = StyleSheet.create({
   },
   quickActionText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 5,
     fontWeight: '600',
   },
@@ -854,6 +940,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     lineHeight: 24,
+  },
+  categoryIconLoading: {
+    opacity: 0.7,
   },
 });
 

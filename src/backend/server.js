@@ -9,6 +9,7 @@ const bodyParser = require("body-parser");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const OpenAI = require("openai");
 
 const app = express();
 app.use(cors());
@@ -380,6 +381,60 @@ app.delete("/savedRecipes/:recipeId", (req, res) => {
   } catch (error) {
     console.error("Error in DELETE /savedRecipes/:recipeId:", error);
     return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Generate recipe based on category
+app.post("/generateRecipe", async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful cooking assistant. Generate simple, practical recipes with common ingredients."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const recipeText = completion.choices[0].message.content;
+    const recipe = JSON.parse(recipeText);
+    
+    // Use Unsplash API for image search instead of DALL-E
+    const unsplashResponse = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(recipe.title)}&per_page=1`,
+      {
+        headers: {
+          'Authorization': `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+        }
+      }
+    );
+    
+    const imageData = await unsplashResponse.json();
+    if (imageData.results && imageData.results.length > 0) {
+      recipe.image = imageData.results[0].urls.regular;
+    } else {
+      recipe.image = null; // Fallback if no image found
+    }
+    
+    recipe.rating = (Math.random() * 2 + 3).toFixed(1); // Random rating between 3-5
+
+    res.json({ recipe });
+  } catch (error) {
+    console.error("Error generating recipe:", error);
+    res.status(500).json({ error: "Failed to generate recipe" });
   }
 });
 

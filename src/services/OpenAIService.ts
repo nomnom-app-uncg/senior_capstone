@@ -59,7 +59,7 @@ export const generateText = async (prompt: string) => {
 export const getDishesFromIngredients = async (ingredients: string) => {
   try {
     const response = await openAI.post("/chat/completions", {
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "user",
@@ -161,23 +161,8 @@ export const generateRecipeWithImage = async (cuisine: string) => {
     const content = response.data.choices?.[0]?.message?.content || "{}";
     const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
     const recipeData = JSON.parse(cleanContent);
-    
-    // Generate an image for the recipe
-    const dalleResponse = await openAI.post("/images/generations", {
-      model: "dall-e-3",
-      prompt: `A professional food photography of ${recipeData.title}, ${cuisine} cuisine, high quality, well-lit, appetizing`,
-      n: 1,
-      size: "1024x1024",
-      quality: "standard",
-    });
 
-    const imageUrl = dalleResponse.data.data?.[0]?.url;
-    if (!imageUrl) throw new Error("No image generated");
-
-    return {
-      ...recipeData,
-      image: imageUrl
-    };
+    return recipeData;
   } catch (error) {
     console.error("Error generating recipe:", error);
     return null;
@@ -195,6 +180,23 @@ export const generateTrendingRecipes = async () => {
       try {
         const recipe = await generateRecipeWithImage(cuisine);
         if (recipe) {
+          // Use Unsplash API for image search
+          const unsplashResponse = await fetch(
+            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(recipe.title)}&per_page=1`,
+            {
+              headers: {
+                'Authorization': `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`
+              }
+            }
+          );
+          
+          const imageData = await unsplashResponse.json();
+          if (imageData.results && imageData.results.length > 0) {
+            recipe.image = imageData.results[0].urls.regular;
+          } else {
+            recipe.image = "https://via.placeholder.com/400x300?text=No+Image";
+          }
+          
           recipes.push(recipe);
         }
         // Add a delay between requests to avoid rate limiting
