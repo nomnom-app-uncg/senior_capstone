@@ -9,9 +9,8 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 2. Install dependencies
 
    ```bash
-   npm install
-      npx expo install expo-file-system
-
+   npm install/
+   npx expo install expo-file-system
    ```
 3. Run Node.js server
 
