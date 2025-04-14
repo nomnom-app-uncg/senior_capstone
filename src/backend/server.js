@@ -59,8 +59,9 @@ const upload = multer({
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "mysql",  // Default AMPPS MySQL password
+  password: "",  // Default AMPPS MySQL password
   database: "nomnomapp",
+  port: 3307,
 });
 
 db.connect((err) => {
@@ -288,6 +289,54 @@ app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
+
+// Define your backend server IP or LAN IP
+const SERVER_IP = process.env.SERVER_IP || "http://localhost:3000";
+
+app.post("/posts", upload.single("image"), (req, res) => {
+  console.log("📥 POST /posts hit!");
+  console.log("🖼️ File:", req.file);
+  console.log("📝 Caption:", req.body.caption);
+
+  if (!req.file || !req.body.caption) {
+    return res.status(400).json({ error: "Missing file or caption" });
+  }
+
+  // ✅ Only store relative path!
+  const imageUrl = `/uploads/${req.file.filename}`;
+
+  const sql = "INSERT INTO posts (image, caption, created_at) VALUES (?, ?, NOW())";
+  db.query(sql, [imageUrl, req.body.caption], (err, result) => {
+    if (err) {
+      console.error("DB insert error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    // You can still return full URL here if needed:
+    const fullImageUrl = `${req.protocol}://${req.headers.host}${imageUrl}`;
+    res.json({ id: result.insertId, image: fullImageUrl, caption: req.body.caption });
+  });
+});
+
+app.get("/posts", (req, res) => {
+  const sql = "SELECT * FROM posts ORDER BY created_at DESC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching posts:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    const fixed = results.map((post) => ({
+      ...post,
+      image: post.image.startsWith("http")
+        ? post.image
+        : `${req.protocol}://${req.headers.host}${post.image}`,
+    }));
+
+    res.json(fixed);
+  });
+});
+
 
 // Start Server
 app.listen(3000, "0.0.0.0", () => {
