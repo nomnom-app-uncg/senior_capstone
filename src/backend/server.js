@@ -253,6 +253,7 @@ app.post("/updateProfilePicture", upload.single('image'), async (req, res) => {
       console.log('No auth header found');
       return res.status(401).json({ error: "No token provided" });
     }
+
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, SECRET_KEY);
     const userId = decoded.user_id;
@@ -264,22 +265,23 @@ app.post("/updateProfilePicture", upload.single('image'), async (req, res) => {
 
     console.log('File received:', req.file);
     const filename = req.file.filename;
-
-    // Update user's profile picture in database
     const imageUrl = `/uploads/${filename}`;
-    await db.query(
+
+    // ✅ FIXED PROMISE USAGE
+    await db.promise().query(
       "UPDATE users SET profilePic = ? WHERE user_id = ?",
       [imageUrl, userId]
     );
 
-    // Return the full URL for the image
-    const fullImageUrl = `${req.protocol}://${req.hostname}:${process.env.PORT || 3000}${imageUrl}`;
-    res.json({ image: fullImageUrl });
+    const fullImageUrl = `${req.protocol}://${req.get("host")}${imageUrl}`;
+    res.setHeader("Content-Type", "application/json");
+    return res.status(200).json({ image: fullImageUrl });
   } catch (error) {
     console.error("Error updating profile picture:", error);
-    res.status(500).json({ error: "Failed to update profile picture" });
+    return res.status(500).json({ error: "Failed to update profile picture" });
   }
 });
+
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -358,6 +360,8 @@ app.get("/posts", (req, res) => {
     res.json(fixed);
   });
 });
+
+
 
 
 

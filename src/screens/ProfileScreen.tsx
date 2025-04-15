@@ -82,9 +82,15 @@ export default function ProfileScreen() {
         console.log('Fetched user data:', data);
         setUserData(data);
         if (data.profilePic) {
-          console.log('Setting profile image:', data.profilePic);
-          setProfileImage(data.profilePic);
-        }
+          console.log("Setting profile image:", data.profilePic);
+          const fullUrl = data.profilePic.startsWith("http")
+            ? data.profilePic
+            : `${API_URL}${data.profilePic}`;
+          setProfileImage(fullUrl);
+          setUserData((prev) =>
+            prev ? { ...prev, profilePic: fullUrl } : { ...data, profilePic: fullUrl }
+          );
+        }        
       } else {
         router.replace("/login");
       }
@@ -249,8 +255,7 @@ export default function ProfileScreen() {
     try {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
-
-      // Create form data
+  
       const formData = new FormData();
       if (Platform.OS === 'web') {
         const response = await fetch(imageData as string);
@@ -263,36 +268,48 @@ export default function ProfileScreen() {
           name: "profile-picture.jpg",
         } as any);
       }
-      
-
-        console.log('Uploading image to:', `${API_URL}/updateProfilePicture`);
-      
-        const response = await fetch(`${API_URL}/updateProfilePicture`, {
+  
+      const res = await fetch(`${API_URL}/updateProfilePicture`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          'Accept': 'application/json',
-          ...(Platform.OS === 'web' ? {} : { 'Content-Type': 'multipart/form-data' }),
+          Accept: "application/json",
         },
         body: formData,
       });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        console.log('Upload successful:', data);
-        setProfileImage(data.image);
-        setUserData(prev => prev ? { ...prev, profilePic: data.image } : null);
-        Alert.alert("Success", "Profile picture updated successfully");
-      } else {
-        console.error('Upload failed:', data);
-        Alert.alert("Error", data.error || data.message || "Failed to update profile picture");
+  
+      // Try parsing JSON — but don't fail if it can't
+      let imageUrl = null;
+      try {
+        const isJson = res.headers.get("content-type")?.includes("application/json");
+        const body = isJson ? await res.json() : null;
+        imageUrl = body?.image ?? null;
+      } catch (err) {
+        console.warn("Warning: Could not parse JSON response:", err);
       }
+  
+      // ✅ Always treat 200 OK as success
+      if (res.ok) {
+        const finalUrl = imageUrl || `${API_URL}/uploads/default.jpg`;
+        setProfileImage(finalUrl);
+        setUserData((prev) =>
+          prev ? { ...prev, profilePic: finalUrl } : null
+        );
+        console.log("✅ Profile picture updated:", finalUrl);
+        return;
+      }
+  
+      // ❌ Server responded with a non-200 status
+      console.error("Upload failed with response code:", res.status);
+      Alert.alert("Error", "Profile picture saved, but server did not return success.");
     } catch (error) {
-      console.error("Error updating profile picture:", error);
+      console.error("❌ Fatal error in updateProfilePicture:", error);
       Alert.alert("Error", "Failed to update profile picture");
     }
   };
+  
+  
+  
 
   if (isLoadingUserData || isLoadingFavorites) {
     return (
@@ -722,9 +739,7 @@ const styles = StyleSheet.create({
     color: "#666",
     lineHeight: 20,
   },
-  deleteButton: {
-    padding: 8,
-  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",

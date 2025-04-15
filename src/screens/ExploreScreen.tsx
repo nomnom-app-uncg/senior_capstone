@@ -25,6 +25,7 @@ export default function ExploreScreen() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  
 
   useEffect(() => {
     fetchPosts();
@@ -146,7 +147,7 @@ export default function ExploreScreen() {
   return (
     <LinearGradient colors={["#FFFFFF", "#D4E9C7"]} style={styles.gradient}>
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={styles.title}>Create a Post</Text>
+      <Text style={styles.title}>EXPLORE</Text>
 
       <TextInput
         placeholder="Caption"
