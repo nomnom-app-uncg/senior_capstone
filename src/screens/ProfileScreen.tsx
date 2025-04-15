@@ -218,36 +218,31 @@ export default function ProfileScreen() {
     }
   };
 
-    const pickImage = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 1,
-            });
-
-            if (!result.canceled) {
-                const imageUri = result.assets[0].uri;
-
-                // Copy image to app's local directory
-                const fileName = imageUri.split('/').pop();
-                const localPath = FileSystem.documentDirectory + fileName;
-
-                await FileSystem.copyAsync({
-                    from: imageUri,
-                    to: localPath,
-                });
-
-                // Save local path to AsyncStorage
-                await AsyncStorage.setItem("localProfileImage", localPath);
-                setProfileImage(localPath);
-            }
-        } catch (error) {
-            console.error("Error picking image:", error);
-            Alert.alert("Error", "Failed to pick image");
-        }
-    };
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+  
+      if (!result.canceled) {
+        const imageUri = result.assets[0].uri;
+  
+        setProfileImage(imageUri);
+        await AsyncStorage.setItem("localProfileImage", imageUri);
+  
+        // ✅ Only call updateProfilePicture — skip copyAsync on web
+        await updateProfilePicture(imageUri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
+    }
+  };
+  
+  
 
 
   const updateProfilePicture = async (imageData: string | Blob) => {
@@ -257,15 +252,18 @@ export default function ProfileScreen() {
 
       // Create form data
       const formData = new FormData();
-      if (Platform.OS === 'web' && imageData instanceof Blob) {
-        formData.append('image', imageData, 'profile-picture.jpg');
+      if (Platform.OS === 'web') {
+        const response = await fetch(imageData as string);
+        const blob = await response.blob();
+        formData.append("image", blob, "profile-picture.jpg");
       } else {
-        formData.append('image', {
-          uri: typeof imageData === 'string' ? imageData.replace('file://', '') : '',
-          type: 'image/jpeg',
-          name: 'profile-picture.jpg',
+        formData.append("image", {
+          uri: typeof imageData === "string" ? imageData : "",
+          type: "image/jpeg",
+          name: "profile-picture.jpg",
         } as any);
       }
+      
 
         console.log('Uploading image to:', `${API_URL}/updateProfilePicture`);
       

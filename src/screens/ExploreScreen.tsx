@@ -1,5 +1,7 @@
 // src/screens/ExploreScreen.tsx
 import React, { useEffect, useState } from "react";
+import { useWindowDimensions } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   View,
   Text,
@@ -107,18 +109,42 @@ export default function ExploreScreen() {
 
     setUploading(false);
   };
+  const { width } = useWindowDimensions();
+  const isWideScreen = width >= 768; 
 
   const renderPost = ({ item }) => (
-    <View style={styles.postCard}>
+    <View style={[styles.postCard, !isWideScreen && { alignSelf: "center" }]}>
+      {/* Header */}
+      <View style={styles.postHeader}>
+        <Image
+          source={{
+            uri:
+              item.profilePic ||
+              "https://i.pinimg.com/564x/dc/c6/d4/dcc6d4ea22c553ae169e6637c085e389.jpg",
+          }}
+          style={styles.profilePic}
+        />
+        <Text style={styles.username}>{item.username || "Anonymous"}</Text>
+      </View>
+  
+      {/* Post Image */}
       {item.image ? (
         <Image source={{ uri: item.image }} style={styles.postImage} />
       ) : null}
+  
+      {/* Caption & Timestamp */}
       <Text style={styles.postCaption}>{item.caption}</Text>
-      <Text style={styles.postDate}>{new Date(item.created_at).toLocaleString()}</Text>
+      <Text style={styles.postDate}>
+        {new Date(item.created_at).toLocaleString()}
+      </Text>
     </View>
   );
+  
+
+
 
   return (
+    <LinearGradient colors={["#FFFFFF", "#D4E9C7"]} style={styles.gradient}>
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={styles.title}>Create a Post</Text>
 
@@ -144,92 +170,151 @@ export default function ExploreScreen() {
       {loading ? (
         <ActivityIndicator size="large" color="#6FA35E" />
       ) : (
+        <View style={isWideScreen && styles.postListWrapper}>
         <FlatList
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id.toString()}
           scrollEnabled={false}
-        />
+          numColumns={isWideScreen ? 2 : 1} // ✅ Dynamic column count
+          columnWrapperStyle={
+            isWideScreen ? { justifyContent: "space-between", paddingHorizontal: 4 } : undefined
+        }
+  contentContainerStyle={{ paddingBottom: 100 }}
+/>
+</View>
+
       )}
     </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  gradient: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 26,
+    fontWeight: "800",
     color: "#2E7D32",
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: "center",
   },
   input: {
     borderColor: "#ccc",
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: "#fff",
+    fontSize: 16,
   },
   imagePicker: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 10,
     marginBottom: 10,
   },
   imagePickerText: {
     fontSize: 16,
     color: "#6FA35E",
+    fontWeight: "600",
   },
   previewImage: {
     width: "100%",
-    height: 200,
-    borderRadius: 10,
+    height: 220,
+    borderRadius: 12,
     marginBottom: 15,
   },
   uploadButton: {
     backgroundColor: "#6FA35E",
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 12,
     alignItems: "center",
     marginBottom: 30,
-  },
-  uploadButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 10,
-    color: "#2E7D32",
-  },
-  postCard: {
-    marginBottom: 20,
-    borderRadius: 10,
-    backgroundColor: "#FFF",
-    padding: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
+  uploadButtonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 15,
+    color: "#2E7D32",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+    paddingBottom: 8,
+  },
+  postCard: {
+    flex: 1,
+    margin: 8,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    padding: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 5,   
+  },  
+  
   postImage: {
     width: "100%",
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
+    aspectRatio: 4 / 3, // ✅ Adjusted to a shorter, cleaner shape
+    borderRadius: 10,
+    marginBottom: 12,
+    resizeMode: "cover",
+  }, 
   postCaption: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 17,
+    fontWeight: "600",
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   postDate: {
     fontSize: 12,
-    color: "gray",
+    color: "#888",
+    textAlign: "right",
   },
+  postListWrapper: {
+    width: "100%",
+    maxWidth: 1250,       // ✅ Limit overall post area
+    alignSelf: "center",  // ✅ Center on the screen
+    paddingHorizontal: 12,
+  },  
+  postHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  profilePic: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    backgroundColor: "#ccc",
+  },
+  username: {
+    fontWeight: "600",
+    fontSize: 15,
+    color: "#2E7D32",
+  },
+
 });

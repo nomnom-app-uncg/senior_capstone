@@ -44,7 +44,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 15 * 1024 * 1024 // 15MB limit
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -59,9 +59,9 @@ const upload = multer({
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "",  // Default AMPPS MySQL password
+  password: "mysql",  // Default AMPPS MySQL password
   database: "nomnomapp",
-  port: 3307,
+  port: 3306,
 });
 
 db.connect((err) => {
@@ -268,7 +268,7 @@ app.post("/updateProfilePicture", upload.single('image'), async (req, res) => {
     // Update user's profile picture in database
     const imageUrl = `/uploads/${filename}`;
     await db.query(
-      "UPDATE users SET profile_pic = ? WHERE id = ?",
+      "UPDATE users SET profilePic = ? WHERE user_id = ?",
       [imageUrl, userId]
     );
 
@@ -294,32 +294,51 @@ app.use((err, req, res, next) => {
 const SERVER_IP = process.env.SERVER_IP || "http://localhost:3000";
 
 app.post("/posts", upload.single("image"), (req, res) => {
-  console.log("📥 POST /posts hit!");
-  console.log("🖼️ File:", req.file);
-  console.log("📝 Caption:", req.body.caption);
-
-  if (!req.file || !req.body.caption) {
-    return res.status(400).json({ error: "Missing file or caption" });
-  }
-
-  // ✅ Only store relative path!
-  const imageUrl = `/uploads/${req.file.filename}`;
-
-  const sql = "INSERT INTO posts (image, caption, created_at) VALUES (?, ?, NOW())";
-  db.query(sql, [imageUrl, req.body.caption], (err, result) => {
-    if (err) {
-      console.error("DB insert error:", err);
-      return res.status(500).json({ error: "Database error" });
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "No token provided" });
     }
 
-    // You can still return full URL here if needed:
-    const fullImageUrl = `${req.protocol}://${req.headers.host}${imageUrl}`;
-    res.json({ id: result.insertId, image: fullImageUrl, caption: req.body.caption });
-  });
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    if (!req.file || !req.body.caption) {
+      return res.status(400).json({ error: "Missing file or caption" });
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+    const caption = req.body.caption;
+
+    const sql = "INSERT INTO posts (image, caption, created_at, user_id) VALUES (?, ?, NOW(), ?)";
+    db.query(sql, [imageUrl, caption, userId], (err, result) => {
+      if (err) {
+        console.error("DB insert error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      const fullImageUrl = `${req.protocol}://${req.headers.host}${imageUrl}`;
+      res.json({ id: result.insertId, image: fullImageUrl, caption });
+    });
+  } catch (err) {
+    console.error("Error in POST /posts:", err);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
 });
 
+
 app.get("/posts", (req, res) => {
-  const sql = "SELECT * FROM posts ORDER BY created_at DESC";
+  const sql = `
+    SELECT 
+      posts.*, 
+      users.username, 
+      users.profilePic 
+    FROM posts 
+    JOIN users ON posts.user_id = users.user_id 
+    ORDER BY posts.created_at DESC
+  `;
+
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching posts:", err);
@@ -331,11 +350,15 @@ app.get("/posts", (req, res) => {
       image: post.image.startsWith("http")
         ? post.image
         : `${req.protocol}://${req.headers.host}${post.image}`,
+      profilePic: post.profilePic?.startsWith("http")
+        ? post.profilePic
+        : `${req.protocol}://${req.headers.host}${post.profilePic || ""}`,
     }));
 
     res.json(fixed);
   });
 });
+
 
 
 // Start Server
