@@ -36,3 +36,49 @@ export const uploadPostToServer = async (formData: FormData) => {
     throw err;
   }
 };
+
+export const likePost = async (postId: number) => {
+  const token = await AsyncStorage.getItem("userToken");
+  if (!token) throw new Error("No user token found.");
+
+  return axios.post(
+    `${API_URL}/like`,
+    { postId },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+};
+
+export const unlikePost = async (postId: number) => {
+  const token = await AsyncStorage.getItem("userToken");
+  if (!token) throw new Error("No user token found.");
+
+  return axios.delete(`${API_URL}/unlike`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { postId },
+  });
+};
+
+export const addComment = async (postId: number, content: string) => {
+  const token = await AsyncStorage.getItem("userToken");
+  if (!token) throw new Error("No user token found.");
+
+  return axios.post(
+    `${API_URL}/comment`,
+    { postId, content },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+};
+
+export const getMyLikes = async () => {
+  const token = await AsyncStorage.getItem("userToken");
+  if (!token) throw new Error("No user token found.");
+  const res = await axios.get(`${API_URL}/myLikes`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data; // Array of liked post IDs
+};
+
+export const getComments = async (postId: number) => {
+  const response = await axios.get(`${API_URL}/comments/${postId}`);
+  return response.data;
+};

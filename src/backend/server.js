@@ -333,12 +333,14 @@ app.post("/posts", upload.single("image"), (req, res) => {
 app.get("/posts", (req, res) => {
   const sql = `
     SELECT 
-      posts.*, 
-      users.username, 
-      users.profilePic 
-    FROM posts 
-    JOIN users ON posts.user_id = users.user_id 
-    ORDER BY posts.created_at DESC
+    posts.*, 
+    users.username, 
+    users.profilePic,
+    (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id) AS likeCount,
+    (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS commentCount
+  FROM posts
+  JOIN users ON posts.user_id = users.user_id
+  ORDER BY posts.created_at DESC
   `;
 
   db.query(sql, (err, results) => {
@@ -361,7 +363,135 @@ app.get("/posts", (req, res) => {
   });
 });
 
+app.post("/like", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+    const { postId } = req.body;
+
+    if (!postId) return res.status(400).json({ error: "Missing postId" });
+
+    const sql = "INSERT IGNORE INTO likes (post_id, user_id) VALUES (?, ?)";
+    db.query(sql, [postId, userId], (err, result) => {
+      if (err) {
+        console.error("Error liking post:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      return res.json({ message: "Post liked" });
+    });
+  } catch (error) {
+    console.error("Like error:", error);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+});
+
+app.delete("/unlike", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+    const { postId } = req.body;
+
+    if (!postId) return res.status(400).json({ error: "Missing postId" });
+
+    const sql = "DELETE FROM likes WHERE post_id = ? AND user_id = ?";
+    db.query(sql, [postId, userId], (err, result) => {
+      if (err) {
+        console.error("Error unliking post:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      return res.json({ message: "Post unliked" });
+    });
+  } catch (error) {
+    console.error("Unlike error:", error);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+});
+
+app.get("/myLikes", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    const sql = "SELECT post_id FROM likes WHERE user_id = ?";
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching liked posts:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      const likedPostIds = results.map(r => r.post_id);
+      res.json(likedPostIds);
+    });
+  } catch (error) {
+    console.error("Error in /myLikes:", error);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+
+app.post("/comment", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+    const { postId, content } = req.body;
+
+    if (!postId || !content) return res.status(400).json({ error: "Missing postId or content" });
+
+    const sql = "INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)";
+    db.query(sql, [postId, userId, content], (err, result) => {
+      if (err) {
+        console.error("Error adding comment:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      return res.json({ message: "Comment added" });
+    });
+  } catch (error) {
+    console.error("Comment error:", error);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+});
+
+app.get("/comments/:postId", (req, res) => {
+  const { postId } = req.params;
+
+  const sql = `
+    SELECT comments.*, users.username, users.profilePic
+    FROM comments
+    JOIN users ON comments.user_id = users.user_id
+    WHERE post_id = ?
+    ORDER BY created_at ASC
+  `;
+
+  db.query(sql, [postId], (err, results) => {
+    if (err) {
+      console.error("Error fetching comments:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    const formatted = results.map(comment => ({
+      ...comment,
+      profilePic: comment.profilePic?.startsWith("http")
+        ? comment.profilePic
+        : `${req.protocol}://${req.headers.host}${comment.profilePic || ""}`,
+    }));
+
+    res.json(formatted);
+  });
+});
 
 
 

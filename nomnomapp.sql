@@ -67,6 +67,36 @@ CREATE TABLE `user_trending_recipes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+-- --------------------------------------------------------
+-- Table structure for table `likes`
+--
+
+CREATE TABLE `likes` (
+  `like_id` INT NOT NULL AUTO_INCREMENT,
+  `post_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`like_id`),
+  UNIQUE KEY `unique_like` (`post_id`, `user_id`),
+  FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `comments`
+--
+
+CREATE TABLE `comments` (
+  `comment_id` INT NOT NULL AUTO_INCREMENT,
+  `post_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `content` TEXT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`comment_id`),
+  FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 -- Insert test user
 INSERT INTO `users` (`user_id`, `username`, `email`, `password_hash`, `profilePic`, `created_at`) VALUES
