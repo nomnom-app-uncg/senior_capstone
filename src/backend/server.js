@@ -59,7 +59,7 @@ const upload = multer({
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "mysql",  // Default AMPPS MySQL password
+  password: "",  // Default AMPPS MySQL password
   database: "nomnomapp",
   port: 3306,
 });
@@ -163,6 +163,9 @@ app.get("/profile", (req, res) => {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 });
+
+
+
 app.delete("/deleteAccount", (req, res) => {
   try {
     const authHeader = req.headers.authorization;

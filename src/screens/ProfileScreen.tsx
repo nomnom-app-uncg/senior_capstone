@@ -21,6 +21,8 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from "../constants/config";//IP address 
 import * as FileSystem from 'expo-file-system';
+import { useFocusEffect } from '@react-navigation/native';
+
 
 
 interface UserData {
@@ -50,18 +52,25 @@ export default function ProfileScreen() {
   const router = useRouter();
 
 
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchFavorites();
+    }, [])
+  );
+  
   useEffect(() => {
-  const loadImageFromStorage = async () => {
-    const storedImage = await AsyncStorage.getItem("localProfileImage");
-    if (storedImage) {
-      setProfileImage(storedImage);
-    }
-  };
-
-  loadImageFromStorage();
-  fetchUserData();
-  fetchFavorites();
-}, []);
+    const loadImageFromStorage = async () => {
+      const storedImage = await AsyncStorage.getItem("localProfileImage");
+      if (storedImage) {
+        setProfileImage(storedImage);
+      }
+    };
+  
+    loadImageFromStorage();
+    fetchUserData();
+    fetchFavorites(); // Optional here since focusEffect already does it
+  }, []);
+  
 
   const fetchUserData = async () => {
     try {
@@ -107,7 +116,8 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
 
-        const response = await fetch(`${API_URL}/savedRecipe` , {
+      const response = await fetch(`${API_URL}/savedRecipes`, {
+
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -202,9 +212,9 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("userToken");
       if (!token) return;
 
-      const response = await fetch(
-          `${ API_URL } / savedRecipes / ${ recipeId }`,
-        {
+      const response = await fetch(`${API_URL}/savedRecipes/${recipeId}`, {
+
+
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -410,26 +420,27 @@ export default function ProfileScreen() {
             ) : (
               <View style={styles.favoritesList}>
                 {favorites.map((recipe) => (
-                  <TouchableOpacity
-                    key={recipe.recipe_id}
-                    style={styles.recipeCard}
-                    onPress={() => setSelectedRecipe(recipe)}
-                  >
-                    <View style={styles.recipeCardContent}>
-                      <Text style={styles.recipeTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                      <Text style={styles.recipePreview} numberOfLines={2}>
-                        {recipe.content}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteFavorite(recipe.recipe_id)}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
+                 <View key={recipe.recipe_id} style={styles.recipeCard}>
+                 <TouchableOpacity
+                   style={styles.recipeCardContent}
+                   onPress={() => setSelectedRecipe(recipe)}
+                 >
+                   <Text style={styles.recipeTitle} numberOfLines={2}>
+                     {recipe.title}
+                   </Text>
+                   <Text style={styles.recipePreview} numberOfLines={2}>
+                     {recipe.content}
+                   </Text>
+                 </TouchableOpacity>
+               
+                 <TouchableOpacity
+                   style={styles.deleteButton}
+                   onPress={() => handleDeleteFavorite(recipe.recipe_id)}
+                 >
+                   <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                 </TouchableOpacity>
+               </View>
+               
                 ))}
               </View>
             )}
@@ -757,6 +768,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
+  deleteButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    borderRadius: 10,
+  },
+  
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -811,10 +828,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#E0E0E0",
   },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: "#FF6B6B",
-  },
+  
   modalScroll: {
     maxHeight: 400,
   },

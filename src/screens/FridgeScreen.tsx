@@ -1,5 +1,4 @@
 //fridgescreen.tsx
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -21,13 +20,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDishesFromIngredients } from "@/services/OpenAIService";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { LinearGradient } from 'expo-linear-gradient';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { API_URL } from "@/constants/config";
 
 interface Recipe {
   title: string;
   ingredients: string;
   imageUrl: string;
+  saved?: boolean;
 }
 
 export default function FridgeScreen() {
@@ -37,6 +36,32 @@ export default function FridgeScreen() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [savedTitles, setSavedTitles] = useState<string[]>([]);
+
+  const fetchSavedRecipes = async () => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
+      const res = await fetch(`${API_URL}/savedRecipes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const titles = data.map((r: { title: string }) => r.title.trim().toLowerCase());
+        setSavedTitles(titles);
+      }
+    } catch (err) {
+      console.error("Error fetching saved recipes:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedRecipes();
+  }, []);
 
   const fetchRecipeFromIngredients = async () => {
     if (ingredients.length === 0) {
@@ -47,29 +72,25 @@ export default function FridgeScreen() {
     setLoadingGPT(true);
     try {
       const result = await getDishesFromIngredients(ingredients.join(", "));
-      
-      // Split the result into individual recipes
       const recipeArray = result.split('-------------------')
         .filter(recipe => recipe.trim())
         .map(recipe => {
           const lines = recipe.split('\n');
           const titleLine = lines.find(line => line.startsWith('Recipe:'));
           const imageUrlLine = lines.find(line => line.startsWith('Image URL:'));
-          
           const title = titleLine ? titleLine.replace('Recipe:', '').trim() : '';
           let imageUrl = imageUrlLine ? imageUrlLine.replace('Image URL:', '').trim() : '';
-          
-          // Clean up the image URL if it's wrapped in quotes or has extra spaces
-          imageUrl = imageUrl.replace(/^["']|["']$/g, '').trim();
-          
-          // Get all content between title and image URL
+          imageUrl = imageUrl.replace(/^\"|'|\"$/g, '').trim();
           const content = titleLine 
             ? lines.slice(lines.indexOf(titleLine) + 1, lines.indexOf(imageUrlLine)).join('\n').trim()
             : lines.join('\n').trim();
-          
           return { title, ingredients: content, imageUrl };
         })
-        .filter(recipe => recipe.imageUrl && recipe.imageUrl.startsWith('http')); // Only keep recipes with valid image URLs
+        .filter(recipe => recipe.imageUrl && recipe.imageUrl.startsWith('http'))
+        .map(r => ({
+          ...r,
+          saved: savedTitles.includes(r.title.trim().toLowerCase()),
+        }));
 
       if (recipeArray.length === 0) {
         Alert.alert("No Recipes Found", "No recipes with valid images were found. Please try again.");
@@ -85,15 +106,55 @@ export default function FridgeScreen() {
     }
   };
 
-  const handleAddIngredient = () => {
-    const trimmedIngredient = newIngredient.trim();
-    if (trimmedIngredient) {
-      if (ingredients.includes(trimmedIngredient)) {
-        Alert.alert("Duplicate", "This ingredient is already in your list.");
+  const handleSaveRecipe = async (recipe: Recipe) => {
+    if (savedTitles.includes(recipe.title.trim().toLowerCase())) return;
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        Alert.alert("Login Required", "Please log in to save recipes.");
         return;
       }
-      setIngredients([...ingredients, trimmedIngredient]);
+
+      const response = await fetch(`${API_URL}/saveRecipe`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: recipe.title,
+          content: recipe.ingredients,
+        }),
+      });
+
+      if (response.ok) {
+        console.log("✅ Saved:", recipe.title);
+        setSavedTitles([...savedTitles, recipe.title.trim().toLowerCase()]);
+      } else {
+        console.error("❌ Failed to save:", recipe.title);
+      }
+    } catch (err) {
+      console.error("❌ Error saving recipe:", err);
+    }
+  };
+
+  const toggleSaved = async (index: number) => {
+    const recipe = recipes[index];
+    if (!recipe.saved) {
+      await handleSaveRecipe(recipe);
+    }
+    const updated = [...recipes];
+    updated[index].saved = !recipe.saved;
+    setRecipes(updated);
+  };
+
+  const handleAddIngredient = () => {
+    const trimmed = newIngredient.trim();
+    if (trimmed && !ingredients.includes(trimmed)) {
+      setIngredients([...ingredients, trimmed]);
       setNewIngredient("");
+    } else if (ingredients.includes(trimmed)) {
+      Alert.alert("Duplicate", "This ingredient is already in your list.");
     }
   };
 
@@ -101,30 +162,20 @@ export default function FridgeScreen() {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
-  const RecipeCard: React.FC<{ item: Recipe; onPress: () => void }> = ({ item, onPress }) => {
+  const RecipeCard: React.FC<{ item: Recipe; index: number; onPress: () => void; toggleSaved: () => void }> = ({ item, index, onPress, toggleSaved }) => {
     const [imageError, setImageError] = useState(false);
-    
     return (
       <TouchableOpacity style={styles.recipeCard} onPress={onPress}>
-        <Image 
-          source={{ uri: imageError ? 'https://via.placeholder.com/400x300?text=No+Image' : item.imageUrl }} 
-          style={styles.recipeImage}
-          resizeMode="cover"
-          onError={() => {
-            console.error('Image loading error for:', item.title);
-            setImageError(true);
-          }}
-        />
+        <TouchableOpacity onPress={toggleSaved} style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}>
+          <Ionicons name={item.saved ? "heart" : "heart-outline"} size={22} color={item.saved ? "green" : "gray"} />
+        </TouchableOpacity>
+        <Image source={{ uri: imageError ? 'https://via.placeholder.com/400x300?text=No+Image' : item.imageUrl }} style={styles.recipeImage} resizeMode="cover" onError={() => setImageError(true)} />
         <View style={styles.recipeHeader}>
-          <Text style={styles.recipeCardTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
+          <Text style={styles.recipeCardTitle} numberOfLines={2}>{item.title}</Text>
           <Ionicons name="chevron-forward" size={24} color="#6FA35E" />
         </View>
         <View style={styles.recipePreview}>
-          <Text style={styles.recipePreviewText} numberOfLines={3}>
-            {item.ingredients.split('\n').slice(0, 3).join('\n')}
-          </Text>
+          <Text style={styles.recipePreviewText} numberOfLines={3}>{item.ingredients.split('\n').slice(0, 3).join('\n')}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -132,132 +183,57 @@ export default function FridgeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <LinearGradient
-        colors={['#FFFFFF', '#D4E9C7']}
-        style={styles.gradient}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.container}
-        >
-          <View style={styles.header}>
-            <Image 
-              source={require("@/assets/images/nomnomLogo.png")} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <View style={styles.headerCenter}>
-              <Ionicons name="restaurant-outline" size={36} color="#6FA35E" />
-              <Text style={styles.heading}>Virtual Fridge</Text>
+      <LinearGradient colors={["#FFFFFF", "#D4E9C7"]} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Add an ingredient"
+                value={newIngredient}
+                onChangeText={setNewIngredient}
+                placeholderTextColor="#666"
+                onSubmitEditing={handleAddIngredient}
+              />
+              <TouchableOpacity style={styles.addButton} onPress={handleAddIngredient}>
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Add an ingredient"
-              value={newIngredient}
-              onChangeText={setNewIngredient}
-              placeholderTextColor="#666"
-              onSubmitEditing={handleAddIngredient}
-            />
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={handleAddIngredient}
-            >
-              <Text style={styles.addButtonText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.ingredientsList}>
             {ingredients.map((ingredient, index) => (
               <View key={index} style={styles.ingredientItem}>
                 <Text style={styles.ingredientText}>{ingredient}</Text>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => handleRemoveIngredient(index)}
-                >
+                <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveIngredient(index)}>
                   <Ionicons name="close-circle" size={24} color="#FF6B6B" />
                 </TouchableOpacity>
               </View>
             ))}
-
             <TouchableOpacity
               style={[styles.findRecipesButton, loadingGPT && styles.findRecipesButtonDisabled]}
               onPress={fetchRecipeFromIngredients}
               disabled={loadingGPT}
             >
-              {loadingGPT ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.findRecipesButtonText}>Find Recipes</Text>
-              )}
+              {loadingGPT ? <ActivityIndicator color="white" /> : <Text style={styles.findRecipesButtonText}>Find Recipes</Text>}
             </TouchableOpacity>
-
             {recipes.length > 0 && (
-              <View style={styles.recipesSection}>
-                <Text style={styles.sectionTitle}>Suggested Recipes</Text>
-                <FlatList
-                  data={recipes}
-                  numColumns={2}
-                  keyExtractor={(_, index) => index.toString()}
-                  renderItem={({ item }) => (
-                    <RecipeCard
-                      item={item}
-                      onPress={() => {
-                        setSelectedRecipe(item);
-                        setIsModalVisible(true);
-                      }}
-                    />
-                  )}
-                  contentContainerStyle={styles.recipeGrid}
-                />
-              </View>
+              <FlatList
+                data={recipes}
+                numColumns={2}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item, index }) => (
+                  <RecipeCard
+                    item={item}
+                    index={index}
+                    onPress={() => {
+                      setSelectedRecipe(item);
+                      setIsModalVisible(true);
+                    }}
+                    toggleSaved={() => toggleSaved(index)}
+                  />
+                )}
+                contentContainerStyle={styles.recipeGrid}
+              />
             )}
           </ScrollView>
-
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={isModalVisible}
-            onRequestClose={() => {
-              setIsModalVisible(false);
-              setSelectedRecipe(null);
-            }}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Recipe Details</Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={() => {
-                      setIsModalVisible(false);
-                      setSelectedRecipe(null);
-                    }}
-                  >
-                    <Ionicons name="close" size={24} color="#333" />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView style={styles.modalScroll}>
-                  {selectedRecipe && (
-                    <View style={styles.recipeItem}>
-                      <Image 
-                        source={{ uri: selectedRecipe.imageUrl }} 
-                        style={styles.modalImage}
-                        resizeMode="cover"
-                        onError={() => {
-                          console.error('Modal image loading error for:', selectedRecipe.title);
-                        }}
-                      />
-                      <Text style={styles.recipeTitle}>{selectedRecipe.title}</Text>
-                      <Text style={styles.recipeIngredients}>{selectedRecipe.ingredients}</Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>

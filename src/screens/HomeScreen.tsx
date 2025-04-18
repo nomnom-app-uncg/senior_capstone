@@ -27,8 +27,13 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { BlurView } from 'expo-blur';
 import { generateRecipeWithImage, generateTrendingRecipes } from "@/services/OpenAIService";
 import { useRouter, RelativePathString } from "expo-router";
+import { API_URL } from '../constants/config'; 
+import { Pressable } from 'react-native'; 
+import Toast from 'react-native-root-toast';
+
 
 const { width, height } = Dimensions.get('window');
+
 
 interface FeatureCardProps {
   icon: string;
@@ -46,12 +51,16 @@ interface CategoryItemProps {
 }
 
 interface RecipeCardProps {
+  onSave: () => void;
   image: string;
   title: string;
   time: string;
   rating: number;
   onPress: () => void;
+  saved: boolean;
+  onToggleSave: () => void;
 }
+
 
 interface TrendingRecipe {
   title: string;
@@ -150,28 +159,39 @@ const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color, onPress
   </TouchableOpacity>
 );
 
-const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onPress }) => (
-  <TouchableOpacity style={styles.recipeCard} onPress={onPress}>
-    <Image 
-      source={{ uri: image }} 
-      style={styles.recipeImage}
-      resizeMode="cover"
-    />
-    <View style={styles.recipeInfo}>
-      <Text style={styles.recipeTitle}>{title}</Text>
-      <View style={styles.recipeMetaInfo}>
-        <View style={styles.recipeTime}>
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text style={styles.recipeMetaText}>{time}</Text>
-        </View>
-        <View style={styles.recipeRating}>
-          <Ionicons name="star" size={14} color="#FFD700" />
-          <Text style={styles.recipeMetaText}>{rating}</Text>
+const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onPress, saved, onToggleSave }) => (
+  <View style={{ position: 'relative' }}>
+    {/* Heart icon that toggles on press */}
+    <Pressable onPress={onToggleSave} style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}>
+      <Ionicons
+        name={saved ? "heart" : "heart-outline"}
+        size={24}
+        color={saved ? "green" : "gray"}
+      />
+    </Pressable>
+
+
+
+    {/* Touchable card */}
+    <TouchableOpacity style={styles.recipeCard} onPress={onPress}>
+      <Image source={{ uri: image }} style={styles.recipeImage} resizeMode="cover" />
+      <View style={styles.recipeInfo}>
+        <Text style={styles.recipeTitle}>{title}</Text>
+        <View style={styles.recipeMetaInfo}>
+          <View style={styles.recipeTime}>
+            <Ionicons name="time-outline" size={14} color="#666" />
+            <Text style={styles.recipeMetaText}>{time}</Text>
+          </View>
+          <View style={styles.recipeRating}>
+            <Ionicons name="star" size={14} color="#FFD700" />
+            <Text style={styles.recipeMetaText}>{rating}</Text>
+          </View>
         </View>
       </View>
-    </View>
-  </TouchableOpacity>
+    </TouchableOpacity>
+  </View>
 );
+
 
 const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -182,6 +202,101 @@ const HomeScreen: React.FC = () => {
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleTranslateY = useRef(new Animated.Value(20)).current;
   const [selectedRecipe, setSelectedRecipe] = useState<TrendingRecipe | null>(null);
+  const [savedRecipes, setSavedRecipes] = useState<string[]>([]);
+
+  const toggleSaved = async (recipe: TrendingRecipe) => {
+    // Optimistically update UI first
+    setSavedRecipes((prev) =>
+      prev.includes(recipe.title)
+        ? prev.filter(t => t !== recipe.title)
+        : [...prev, recipe.title]
+    );
+  
+    // Only send to backend if not already saved
+    if (!savedRecipes.includes(recipe.title)) {
+      await handleSaveRecipe(recipe);
+    }
+  };
+  
+
+  const handleSaveRecipe = async (recipe: TrendingRecipe) => {
+    console.log("📦 handleSaveRecipe called with:", recipe);
+  
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log("🔑 Token:", token);
+  
+      if (!token) {
+        Toast.show('⚠️ Please log in to save recipes.', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#FFCC00',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+        return;
+      }
+  
+      const response = await fetch(`${API_URL}/saveRecipe`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: recipe.title,
+          content:
+            recipe.description +
+            "\n\nIngredients:\n" +
+            recipe.ingredients.join(", ") +
+            "\n\nInstructions:\n" +
+            recipe.instructions.join("\n"),
+        }),
+      });
+  
+      const responseBody = await response.json().catch(() => null);
+      console.log("📬 Response status:", response.status);
+      console.log("📄 Response body:", responseBody);
+  
+      if (response.ok) {
+        Toast.show('💚 Saved to your profile!', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#D4E9C7',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+      } else {
+        Toast.show('❌ Could not save recipe.', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#FF6B6B',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+      }
+    } catch (err) {
+      console.error("❌ Save recipe error:", err);
+      Toast.show('⚠️ Something went wrong.', {
+        duration: Toast.durations.SHORT,
+        position: Toast.positions.TOP,
+        backgroundColor: '#FFCC00',
+        shadow: true,
+        animation: true,
+        hideOnPress: true,
+        delay: 0,
+      });
+    }
+  };
+  
+  
+  
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryLoading, setCategoryLoading] = useState<string | null>(null);
 
@@ -222,7 +337,8 @@ const HomeScreen: React.FC = () => {
         "servings": "2 servings"
       }`;
 
-      const response = await fetch('http://localhost:3000/generateRecipe', {
+      const response = await fetch(`${API_URL}/generateRecipe`, {
+
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -470,8 +586,14 @@ const HomeScreen: React.FC = () => {
                       time={item.time}
                       rating={item.rating}
                       onPress={() => setSelectedRecipe(item)}
+                      onSave={() => handleSaveRecipe(item)}
+                      saved={savedRecipes.includes(item.title)}
+                      onToggleSave={() => toggleSaved(item)}
+
                     />
+
                   )}
+
                   keyExtractor={(item) => item.title}
                   contentContainerStyle={styles.trendingList}
                 />
