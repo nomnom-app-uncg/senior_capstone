@@ -29,6 +29,8 @@ interface UserData {
   username: string;
   email: string;
   profilePic?: string;
+  totalLikes?: number;
+  totalComments?: number;
 }
 
 interface Recipe {
@@ -380,16 +382,16 @@ export default function ProfileScreen() {
                 <View style={[styles.cardIcon, { backgroundColor: 'rgba(74, 144, 226, 0.1)' }]}>
                   <Ionicons name="time" size={24} color="#4A90E2" />
                 </View>
-                <Text style={styles.cardValue}>0</Text>
-                <Text style={styles.cardLabel}>Recent Views</Text>
+                <Text style={styles.cardValue}>{userData?.totalComments || 0}</Text>
+                <Text style={styles.cardLabel}>Comments</Text>
               </View>
 
               <View style={styles.dashboardCard}>
                 <View style={[styles.cardIcon, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
                   <Ionicons name="star" size={24} color="#FF6B6B" />
                 </View>
-                <Text style={styles.cardValue}>0</Text>
-                <Text style={styles.cardLabel}>Favorites</Text>
+                <Text style={styles.cardValue}>{userData?.totalLikes || 0}</Text>
+                <Text style={styles.cardLabel}>Likes</Text>
               </View>
             </View>
 
