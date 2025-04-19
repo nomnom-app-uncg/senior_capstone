@@ -136,32 +136,53 @@ app.post("/login", (req, res) => {
 });
 // Get current user info
 app.get("/profile", (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, SECRET_KEY);
-    const userId = decoded.user_id;
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ error: "No token provided" });
+        }
 
-    // Query the DB for this user's info
-    const sql = "SELECT user_id, username, email, profilePic FROM users WHERE user_id = ?";
-    db.query(sql, [userId], (err, results) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({ error: "Database error" });
-      }
-      if (results.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      // Return user data (without the password hash)
-      res.json(results[0]);
-    });
-  } catch (error) {
-    console.error("Error in /profile:", error);
-    return res.status(401).json({ message: "Invalid or expired token" });
-  }
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, SECRET_KEY);
+        const userId = decoded.user_id;
+
+        const sql = `
+      SELECT 
+        users.user_id, 
+        users.username, 
+        users.email, 
+        users.profilePic,
+        (
+          SELECT COUNT(*) 
+          FROM likes 
+          JOIN posts ON likes.post_id = posts.id 
+          WHERE posts.user_id = users.user_id
+        ) AS totalLikes,
+        (
+          SELECT COUNT(*)
+          FROM comments
+          JOIN posts ON comments.post_id = posts.id
+          WHERE posts.user_id = users.user_id
+        ) AS totalComments
+      FROM users 
+      WHERE users.user_id = ?
+    `;
+
+        db.query(sql, [userId], (err, results) => {
+            if (err) {
+                console.error("Database error:", err);
+                return res.status(500).json({ error: "Database error" });
+            }
+            if (results.length === 0) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            res.json(results[0]); // ✅ Return full user profile + totalLikes
+        });
+    } catch (error) {
+        console.error("Error in /profile:", error);
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
 });
 
 
