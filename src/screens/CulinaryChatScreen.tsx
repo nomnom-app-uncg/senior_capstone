@@ -86,7 +86,28 @@ export default function CulinaryChatScreen() {
       botResponse = "Storing food properly extends freshness! What ingredient are you storing?";
     } else {
       try {
-        const prompt = `You are a professional culinary assistant. Provide a short, direct, and professional answer to: "${userText}"`;
+        const conversationHistory = messages
+          .slice(-6)
+          .map((msg) => `${msg.sender === "user" ? "User" : "Assistant"}: ${msg.text}`)
+          .join("\n");
+
+        const prompt = `
+You are a helpful culinary chatbot that gives short, food-specific responses.
+Always reply as if you're talking to someone planning or preparing food.
+
+When the user says something like "more", "another", "next", or asks follow-up questions,
+you must remember what was previously asked and continue helping with that same topic.
+
+If they ask for a recipe, offer options.
+If they seem interested, ask: "Would you like ingredients and instructions too?"
+
+Conversation so far:
+${conversationHistory}
+User: ${userText}
+Assistant:`.trim();
+
+
+
         botResponse = await generateText(prompt);
       } catch (error) {
         console.error("Error fetching bot response:", error);
@@ -109,6 +130,7 @@ export default function CulinaryChatScreen() {
     }
   };
 
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -116,7 +138,7 @@ export default function CulinaryChatScreen() {
         style={styles.flexContainer}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        {Platform.OS === "web" ? (
           <View style={styles.chatContainer}>
             <ScrollView
               ref={scrollViewRef}
@@ -138,7 +160,6 @@ export default function CulinaryChatScreen() {
                 </View>
               ))}
 
-             
               {showSuggestions && (
                 <View style={styles.suggestionsContainer}>
                   {suggestedQuestions.map((question, index) => (
@@ -154,27 +175,87 @@ export default function CulinaryChatScreen() {
               )}
             </ScrollView>
 
-           
             <View style={styles.inputContainer}>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  Platform.OS === "web" ? { outlineWidth: 0, outlineColor: "transparent" } as any : {}
+                ]}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Ask a food question..."
+                placeholder=" "
                 multiline
-                blurOnSubmit={false} 
+                blurOnSubmit={false}
+                autoFocus
                 onSubmitEditing={() => setShowSuggestions(false)}
               />
+
               <TouchableOpacity style={styles.sendButton} onPress={() => sendMessage()}>
                 <Text style={styles.sendButtonText}>Send</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </TouchableWithoutFeedback>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.chatContainer}>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+
+                keyboardShouldPersistTaps="always"
+                showsVerticalScrollIndicator={false}
+              >
+
+                {messages.map((msg) => (
+                  <View
+                    key={msg.id}
+                    style={[
+                      styles.messageBubble,
+                      msg.sender === "user" ? styles.userBubble : styles.botBubble,
+                    ]}
+                  >
+                    <Text style={styles.messageText}>{msg.text}</Text>
+                  </View>
+                ))}
+
+                {showSuggestions && (
+                  <View style={styles.suggestionsContainer}>
+                    {suggestedQuestions.map((question, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.suggestedQuestion}
+                        onPress={() => sendMessage(question)}
+                      >
+                        <Text style={styles.suggestedText}>{question}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder=" "
+                  multiline
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => setShowSuggestions(false)}
+                />
+                <TouchableOpacity style={styles.sendButton} onPress={() => sendMessage()}>
+                  <Text style={styles.sendButtonText}>Send</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   flexContainer: { flex: 1 },
@@ -183,7 +264,9 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     paddingBottom: 10,
+    maxHeight: '100%',
   },
+  
   suggestionsContainer: {
     marginTop: 5,
     paddingBottom: 10,
@@ -232,9 +315,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: "#ccc",
     padding: 10,
-    paddingBottom: 50, 
+    paddingBottom: 50,
     backgroundColor: "#fff",
-    marginBottom: Platform.OS === "ios" ? 10 : 0, 
+    marginBottom: Platform.OS === "ios" ? 10 : 0,
   },
   input: {
     flex: 1,
@@ -245,7 +328,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
     marginRight: 5,
+
   },
+
   sendButton: {
     backgroundColor: "#28a745",
     paddingHorizontal: 15,

@@ -27,8 +27,8 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { BlurView } from 'expo-blur';
 import { generateRecipeWithImage, generateTrendingRecipes } from "@/services/OpenAIService";
 import { useRouter, RelativePathString } from "expo-router";
-import { API_URL } from '../constants/config'; 
-import { Pressable } from 'react-native'; 
+import { API_URL } from '../constants/config';
+import { Pressable } from 'react-native';
 import Toast from 'react-native-root-toast';
 
 
@@ -139,13 +139,13 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, ind
 };
 
 const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color, onPress, isLoading }) => (
-  <TouchableOpacity 
-    style={styles.categoryItem} 
+  <TouchableOpacity
+    style={styles.categoryItem}
     onPress={onPress}
     disabled={isLoading}
   >
     <View style={[
-      styles.categoryIcon, 
+      styles.categoryIcon,
       { backgroundColor: color },
       isLoading && styles.categoryIconLoading
     ]}>
@@ -162,13 +162,17 @@ const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color, onPress
 const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onPress, saved, onToggleSave }) => (
   <View style={{ position: 'relative' }}>
     {/* Heart icon that toggles on press */}
-    <Pressable onPress={onToggleSave} style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}>
+    <Pressable
+      onPress={!saved ? onToggleSave : undefined} // ❌ Disable if already saved
+      style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}
+    >
       <Ionicons
-        name={saved ? "heart" : "heart-outline"}
+        name="heart"
         size={24}
         color={saved ? "green" : "gray"}
       />
     </Pressable>
+
 
 
 
@@ -205,27 +209,22 @@ const HomeScreen: React.FC = () => {
   const [savedRecipes, setSavedRecipes] = useState<string[]>([]);
 
   const toggleSaved = async (recipe: TrendingRecipe) => {
-    // Optimistically update UI first
-    setSavedRecipes((prev) =>
-      prev.includes(recipe.title)
-        ? prev.filter(t => t !== recipe.title)
-        : [...prev, recipe.title]
-    );
-  
-    // Only send to backend if not already saved
-    if (!savedRecipes.includes(recipe.title)) {
-      await handleSaveRecipe(recipe);
-    }
+    if (savedRecipes.includes(recipe.title)) return; // ❌ Do nothing if already saved
+
+    setSavedRecipes((prev) => [...prev, recipe.title]); // ✅ Add to saved
+
+    await handleSaveRecipe(recipe); // ✅ Save to backend
   };
-  
+
+
 
   const handleSaveRecipe = async (recipe: TrendingRecipe) => {
     console.log("📦 handleSaveRecipe called with:", recipe);
-  
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       console.log("🔑 Token:", token);
-  
+
       if (!token) {
         Toast.show('⚠️ Please log in to save recipes.', {
           duration: Toast.durations.SHORT,
@@ -238,7 +237,7 @@ const HomeScreen: React.FC = () => {
         });
         return;
       }
-  
+
       const response = await fetch(`${API_URL}/saveRecipe`, {
         method: "POST",
         headers: {
@@ -248,18 +247,19 @@ const HomeScreen: React.FC = () => {
         body: JSON.stringify({
           title: recipe.title,
           content:
-            recipe.description +
+            (recipe.description || " A delicious recipe you'll love!") +
             "\n\nIngredients:\n" +
-            recipe.ingredients.join(", ") +
+            (recipe.ingredients || []).join(", ") +
             "\n\nInstructions:\n" +
-            recipe.instructions.join("\n"),
+            (recipe.instructions || []).join("\n"),
         }),
+
       });
-  
+
       const responseBody = await response.json().catch(() => null);
       console.log("📬 Response status:", response.status);
       console.log("📄 Response body:", responseBody);
-  
+
       if (response.ok) {
         Toast.show('💚 Saved to your profile!', {
           duration: Toast.durations.SHORT,
@@ -294,9 +294,9 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
-  
-  
-  
+
+
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryLoading, setCategoryLoading] = useState<string | null>(null);
 
@@ -323,19 +323,38 @@ const HomeScreen: React.FC = () => {
       setIsLoadingRecipes(false);
     }
   };
+  const handleTrendingCategoryPress = async (category: string) => {
+    try {
+      const result = await generateRecipeWithImage(category.toLowerCase());
+      if (result?.recipe) {
+        setTrendingRecipes((prev) => [result.recipe, ...prev]);
+      } else {
+        Alert.alert("Error", "No recipe returned.");
+      }
+    } catch (error) {
+      console.error("Error generating trending-style category recipe:", error);
+      Alert.alert("Error", "Something went wrong.");
+    }
+  };
+
 
   const handleCategoryPress = async (category: string) => {
     setCategoryLoading(category);
     try {
-      const prompt = `Generate a simple recipe for ${category}. Include a title, ingredients list, and basic instructions. Format it as JSON with the following structure:
-      {
-        "title": "Recipe Title",
-        "ingredients": ["ingredient 1", "ingredient 2", ...],
-        "instructions": ["step 1", "step 2", ...],
-        "time": "30 mins",
-        "difficulty": "Easy",
-        "servings": "2 servings"
-      }`;
+      const randomId = Math.floor(Math.random() * 1000000); // introduces randomness
+
+      const prompt = `Generate a simple and unique ${category} recipe. Add a random twist to make it different each time it's generated. Format it as JSON with the following structure:
+{
+  "title": "Recipe Title",
+  "ingredients": ["ingredient 1", "ingredient 2", ...],
+  "instructions": ["step 1", "step 2", ...],
+  "time": "30 mins",
+  "difficulty": "Easy",
+  "servings": "2 servings"
+}
+// Random ID: ${randomId}`;
+
+
 
       const response = await fetch(`${API_URL}/generateRecipe`, {
 
@@ -413,7 +432,7 @@ const HomeScreen: React.FC = () => {
           <ScrollView bounces={false}>
             {selectedRecipe && (
               <>
-                <Image 
+                <Image
                   source={{ uri: selectedRecipe.image }}
                   style={styles.modalImage}
                   resizeMode="cover"
@@ -421,14 +440,33 @@ const HomeScreen: React.FC = () => {
                 <View style={styles.modalBody}>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>{selectedRecipe.title}</Text>
-                    <TouchableOpacity 
-                      style={styles.closeButton}
-                      onPress={() => setSelectedRecipe(null)}
-                    >
-                      <Ionicons name="close" size={24} color="#333" />
-                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <TouchableOpacity
+                        onPress={
+                          !savedRecipes.includes(selectedRecipe.title)
+                            ? () => toggleSaved(selectedRecipe)
+                            : undefined
+                        }
+                      >
+                        <Ionicons
+                          name="heart"
+                          size={24}
+                          color={savedRecipes.includes(selectedRecipe.title) ? "green" : "gray"}
+                        />
+                      </TouchableOpacity>
+
+
+                      <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={() => setSelectedRecipe(null)}
+                      >
+                        <Ionicons name="close" size={24} color="#333" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  
+
+
                   <View style={styles.recipeMetaContainer}>
                     <View style={styles.recipeMeta}>
                       <Ionicons name="time-outline" size={20} color="#6FA35E" />
@@ -515,8 +553,10 @@ const HomeScreen: React.FC = () => {
                     label={item.label}
                     color={item.color}
                     onPress={() => handleCategoryPress(item.label)}
+
                     isLoading={categoryLoading === item.label}
                   />
+
                 ))}
               </View>
             </View>
@@ -548,25 +588,25 @@ const HomeScreen: React.FC = () => {
               </View>
             </View>
 
-                        {/* Trending Recipes */}
-                        <View style={styles.trendingSection}>
+            {/* Trending Recipes */}
+            <View style={styles.trendingSection}>
               <View style={styles.trendingHeader}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
                   Recipe of the Day
                 </ThemedText>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.refreshButton}
                   onPress={fetchTrendingRecipes}
                   disabled={isLoadingRecipes}
                 >
-                  <Ionicons 
-                    name="refresh-outline" 
-                    size={24} 
+                  <Ionicons
+                    name="refresh-outline"
+                    size={24}
                     color="#6FA35E"
                     style={[
                       styles.refreshIcon,
                       isLoadingRecipes && styles.refreshIconSpinning
-                    ]} 
+                    ]}
                   />
                 </TouchableOpacity>
               </View>
@@ -602,21 +642,21 @@ const HomeScreen: React.FC = () => {
 
             {/* Quick Actions */}
             <View style={styles.quickActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/culinaryhub" as RelativePathString)}
               >
                 <Ionicons name="scan-outline" size={24} color="#FFF" />
                 <Text style={styles.quickActionText}>Scan Recipe</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/culinaryhub" as RelativePathString)}
               >
                 <Ionicons name="camera-outline" size={24} color="#FFF" />
                 <Text style={styles.quickActionText}>Take Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/fridgeScreen" as RelativePathString)}
               >
