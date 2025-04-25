@@ -74,8 +74,7 @@ export default function ProfileScreen() {
   
     loadImageFromStorage();
     fetchUserData();
-    fetchFavorites();
-    fetchMyPosts(); // Optional here since focusEffect already does it
+    fetchFavorites(); // Optional here since focusEffect already does it
   }, []);
   
 
@@ -138,38 +137,6 @@ export default function ProfileScreen() {
       console.error("Error fetching favorites:", error);
     } finally {
       setIsLoadingFavorites(false);
-    }
-  };
-
-  const fetchMyPosts = async () => { //new
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) return;
-      const res = await fetch(`${API_URL}/myPosts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setMyPosts(await res.json());
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingPosts(false);
-    }
-  };
-
-  const handleDeletePost = async (postId: number) => { //new
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) return;
-      const res = await fetch(`${API_URL}/deletePost/${postId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setMyPosts((prev) => prev.filter((p) => p.id !== postId));
-        Alert.alert("Deleted", "Post deleted successfully");
-      } else Alert.alert("Error", "Could not delete post");
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -432,33 +399,17 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.activitySection}> {/* new */}
-  <Text style={styles.activityTitle}>My Posts</Text> {/* new */}
-  {isLoadingPosts ? ( //new
-    <ActivityIndicator size="large" color="#6FA35E" />
-  ) : myPosts.length === 0 ? (
-    <Text style={styles.emptyFavoritesText}>No posts found.</Text>
-  ) : (
-    <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 400 }}> {/* new */}
-      {myPosts.map((post) => (
-        <View key={post.id} style={styles.recipeCard}> {/* reuse style */}
-          <View style={styles.recipeCardContent}> {/* reuse style */}
-            <Text style={styles.recipeTitle}>{post.caption}</Text> {/* reuse style */}
-            <Text style={styles.recipePreview}>{new Date(post.created_at).toLocaleString()}</Text> {/* reuse style */}
-          </View>
-          <TouchableOpacity
-            style={styles.deleteButton} // reuse style
-            onPress={() => handleDeletePost(post.id)}
-          >
-            <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-          </TouchableOpacity>
-        </View>
-      ))}
-    </ScrollView>
-  )}
-</View>
-
-
+            <View style={styles.activitySection}>
+              <Text style={styles.activityTitle}>Recent Activity</Text>
+              <View style={styles.activityList}>
+                <View style={styles.activityItem}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons name="time-outline" size={20} color="#666" />
+                  </View>
+                  <Text style={styles.activityText}>No recent activity</Text>
+                </View>
+              </View>
+            </View>
           </View>
 
           {/* Favorites Section */}
