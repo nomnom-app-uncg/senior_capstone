@@ -26,6 +26,7 @@ import {
   getComments,
   addComment,
   getMyLikes,
+  deletePost,
 } from "@/services/postService";
 
 export default function ExploreScreen() {
@@ -33,6 +34,7 @@ export default function ExploreScreen() {
   const [imageUri, setImageUri] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [likes, setLikes] = useState({});
   const [visibleCommentPostId, setVisibleCommentPostId] = useState(null);
@@ -54,6 +56,14 @@ export default function ExploreScreen() {
           return acc;
         }, {});
         setLikes(likeMap);
+
+        const userData = await AsyncStorage.getItem("user");
+        if (userData) {
+          const user = JSON.parse(userData);
+          console.log("👤 Logged-in user from storage:", user); // for debug
+          setCurrentUserId(user.id);
+        }
+
       } catch (err) {
         Alert.alert("Error", "Unable to fetch posts or likes.");
       }
@@ -210,11 +220,39 @@ export default function ExploreScreen() {
               }}
               style={styles.profilePic}
             />
-            <Text style={styles.username}>{item.username || "Anonymous"}</Text>
+            <Text style={styles.username}>{item.username}</Text>
           </View>
-          <Text style={styles.postDateTop}>
-            {new Date(item.created_at).toLocaleString()}
-          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={styles.postDateTop}>
+              {new Date(item.created_at).toLocaleString()}
+            </Text>
+
+            {/* ✅ DEBUG LOG */}
+            {console.log("🧠 Comparing IDs:", item.user_id, "vs", currentUserId)}
+
+            {/* ✅ DELETE BUTTON — conditionally shown */}
+            {item.user_id === currentUserId && (
+              <TouchableOpacity
+                onPress={async () => {
+                  const confirmed = window.confirm("Are you sure?");
+                  if (confirmed) {
+                    try {
+                      console.log("🗑️ Deleting post ID:", item.id);
+                      await deletePost(item.id);
+                      setPosts((prev) => prev.filter((p) => p.id !== item.id));
+                    } catch (err) {
+                      console.error("❌ Delete failed:", err);
+                      alert("Failed to delete post.");
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={22} color="#d9534f" />
+              </TouchableOpacity>
+            )}
+          </View>
+
         </View>
 
         {item.image && <Image source={{ uri: item.image }} style={styles.postImage} />}

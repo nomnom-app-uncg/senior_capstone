@@ -49,8 +49,13 @@ export default function LoginScreen() {
         setEmail("");
       } else {
         const response = await axios.post(`${API_URL}/login`, { email, password });
-        const { token } = response.data;
+        const { token, user } = response.data;
+
+        // Save both the token and user object
         await AsyncStorage.setItem("userToken", token);
+        await AsyncStorage.setItem("user", JSON.stringify(user));
+
+        console.log("✅ Logged in user:", user); // optional log
         router.replace("/(tabs)" as RelativePathString);
       }
     } catch (err: any) {

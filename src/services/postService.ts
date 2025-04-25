@@ -82,3 +82,22 @@ export const getComments = async (postId: number) => {
   const response = await axios.get(`${API_URL}/comments/${postId}`);
   return response.data;
 };
+
+export const deletePost = async (postId: number) => {
+  const token = await AsyncStorage.getItem("userToken");
+  if (!token) throw new Error("No user token found.");
+
+  const res = await fetch(`${API_URL}/posts/${postId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.message || "Failed to delete post");
+  }
+
+  return await res.json(); // returns { message: "Post deleted" }
+};

@@ -59,9 +59,9 @@ const upload = multer({
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "mysql",  // Default AMPPS MySQL password
+  password: "",  // Default AMPPS MySQL password
   database: "nomnomapp",
-  port: 3306,
+  port: 3307,
 });
 
 db.connect((err) => {
@@ -131,7 +131,16 @@ app.post("/login", (req, res) => {
     // Generate JWT token
     const token = jwt.sign({ user_id: user.user_id }, SECRET_KEY, { expiresIn: "1h" });
 
-    res.json({ token, username: user.username, email: user.email });
+    // ✅ Send back token and full user object (including user_id)
+        res.json({
+          token,
+          user: {
+            id: user.user_id, // match frontend's expectations
+            username: user.username,
+            email: user.email,
+            profilePic: user.profilePic || null
+          }
+        });
   });
 });
 // Get current user info
@@ -527,33 +536,31 @@ app.delete("/posts/:postId", (req, res) => {
     const userId = decoded.user_id;
     const postId = req.params.postId;
 
-    // Only allow deletion if the post belongs to the current user
-    const checkOwnership = "SELECT * FROM posts WHERE id = ? AND user_id = ?";
-    db.query(checkOwnership, [postId, userId], (err, results) => {
+    // Ensure the post belongs to the logged-in user
+    const checkOwnershipQuery = "SELECT * FROM posts WHERE id = ? AND user_id = ?";
+    db.query(checkOwnershipQuery, [postId, userId], (err, results) => {
       if (err) {
         console.error("Error checking post ownership:", err);
         return res.status(500).json({ error: "Database error" });
       }
+
       if (results.length === 0) {
         return res.status(403).json({ error: "Not authorized to delete this post" });
       }
 
-      // Delete likes, comments, and the post itself
-      const deleteLikes = "DELETE FROM likes WHERE post_id = ?";
-      const deleteComments = "DELETE FROM comments WHERE post_id = ?";
-      const deletePost = "DELETE FROM posts WHERE id = ?";
-      db.query(deleteLikes, [postId]);
-      db.query(deleteComments, [postId]);
-      db.query(deletePost, [postId], (err) => {
+      // Delete the post and any associated comments/likes if desired
+      const deletePostQuery = "DELETE FROM posts WHERE id = ?";
+      db.query(deletePostQuery, [postId], (err) => {
         if (err) {
           console.error("Error deleting post:", err);
           return res.status(500).json({ error: "Database error" });
         }
+
         return res.json({ message: "Post deleted" });
       });
     });
-  } catch (error) {
-    console.error("Post delete error:", error);
+  } catch (err) {
+    console.error("Post delete error:", err);
     return res.status(401).json({ message: "Invalid token" });
   }
 });

@@ -75,8 +75,33 @@ export default function ProfileScreen() {
     loadImageFromStorage();
     fetchUserData();
     fetchFavorites(); // Optional here since focusEffect already does it
+    fetchMyPosts();
   }, []);
-  
+
+  const fetchMyPosts = async () => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/myPosts`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMyPosts(data);
+      } else {
+        console.error("Failed to fetch user's posts.");
+      }
+    } catch (error) {
+      console.error("Error fetching my posts:", error);
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
 
   const fetchUserData = async () => {
     try {
@@ -137,6 +162,32 @@ export default function ProfileScreen() {
       console.error("Error fetching favorites:", error);
     } finally {
       setIsLoadingFavorites(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: number) => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) return;
+
+      const confirmed = window.confirm("Are you sure you want to delete this post?");
+      if (!confirmed) return;
+
+      const res = await fetch(`${API_URL}/posts/${postId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        setMyPosts((prev) => prev.filter((p) => p.id !== postId));
+      } else {
+        Alert.alert("Error", "Failed to delete post.");
+      }
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      Alert.alert("Error", "Something went wrong.");
     }
   };
 
@@ -406,7 +457,23 @@ export default function ProfileScreen() {
                   <View style={styles.activityIcon}>
                     <Ionicons name="time-outline" size={20} color="#666" />
                   </View>
-                  <Text style={styles.activityText}>No recent activity</Text>
+                  {isLoadingPosts ? (
+                    <ActivityIndicator size="small" color="#6FA35E" />
+                  ) : myPosts.length === 0 ? (
+                    <Text style={styles.activityText}>No posts yet</Text>
+                  ) : (
+                    myPosts.map((post) => (
+                      <View key={post.id} style={styles.recipeCard}>
+                        <View style={styles.recipeCardContent}>
+                          <Text style={styles.recipeTitle}>{post.caption}</Text>
+                          <Text style={styles.recipePreview}>{new Date(post.created_at).toLocaleString()}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => handleDeletePost(post.id)} style={styles.deleteButton}>
+                          <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
                 </View>
               </View>
             </View>
