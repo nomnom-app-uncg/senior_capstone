@@ -6,6 +6,7 @@ import {
   Image,
   ScrollView,
   View,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
@@ -13,7 +14,10 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import Ionicons from "react-native-vector-icons/Ionicons";
+import Toast from 'react-native-root-toast';
 import { analyzeImageWithGPT } from "@/services/OpenAIService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "@/constants/config";
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ImageToGPTScreen() {
@@ -93,6 +97,82 @@ export default function ImageToGPTScreen() {
       setAnalysisResult("Error analyzing image.");
     }
   };
+
+  const handleSaveRecipe = async () => {
+    console.log("📦 handleSaveRecipe called with:", analysisResult);
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log("🔑 Token:", token);
+
+      if (!token) {
+        Toast.show('⚠️ Please log in to save recipes.', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#FFCC00',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+        return;
+      }
+
+      // Attempt to extract a title from the result
+      const titleMatch = analysisResult.match(/###\s*(.*?Recipe)/i);
+      const title = titleMatch ? titleMatch[1] : "Unnamed AI Recipe";
+
+      const response = await fetch(`${API_URL}/saveRecipe`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title,
+          content: analysisResult,
+        }),
+      });
+
+      const responseBody = await response.json().catch(() => null);
+      console.log("📬 Response status:", response.status);
+      console.log("📄 Response body:", responseBody);
+
+      if (response.ok) {
+        Toast.show('💚 Saved to your profile!', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#D4E9C7',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+      } else {
+        Toast.show('❌ Could not save recipe.', {
+          duration: Toast.durations.SHORT,
+          position: Toast.positions.TOP,
+          backgroundColor: '#FF6B6B',
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+      }
+    } catch (err) {
+      console.error("❌ Save recipe error:", err);
+      Toast.show('⚠️ Something went wrong.', {
+        duration: Toast.durations.SHORT,
+        position: Toast.positions.TOP,
+        backgroundColor: '#FFCC00',
+        shadow: true,
+        animation: true,
+        hideOnPress: true,
+        delay: 0,
+      });
+    }
+  };
+
 
   if (showCamera) {
     return (
@@ -188,7 +268,20 @@ export default function ImageToGPTScreen() {
               <View style={styles.analysisContent}>
                 <Text style={styles.analysisDescription}>{analysisResult}</Text>
               </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#6FA35E",
+                  padding: 12,
+                  borderRadius: 10,
+                  marginTop: 15,
+                  alignItems: "center",
+                }}
+                onPress={handleSaveRecipe}
+              >
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>Save Recipe</Text>
+              </TouchableOpacity>
             </View>
+
           )}
         </ScrollView>
       </KeyboardAvoidingView>
