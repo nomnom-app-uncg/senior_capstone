@@ -59,7 +59,7 @@ const upload = multer({
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "",  // Default AMPPS MySQL password
+  password: "mysql",  // Default AMPPS MySQL password
   database: "nomnomapp",
   port: 3306,
 });
@@ -516,6 +516,91 @@ app.get("/comments/:postId", (req, res) => {
     res.json(formatted);
   });
 });
+
+app.delete("/posts/:postId", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+    const postId = req.params.postId;
+
+    // Only allow deletion if the post belongs to the current user
+    const checkOwnership = "SELECT * FROM posts WHERE id = ? AND user_id = ?";
+    db.query(checkOwnership, [postId, userId], (err, results) => {
+      if (err) {
+        console.error("Error checking post ownership:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (results.length === 0) {
+        return res.status(403).json({ error: "Not authorized to delete this post" });
+      }
+
+      // Delete likes, comments, and the post itself
+      const deleteLikes = "DELETE FROM likes WHERE post_id = ?";
+      const deleteComments = "DELETE FROM comments WHERE post_id = ?";
+      const deletePost = "DELETE FROM posts WHERE id = ?";
+      db.query(deleteLikes, [postId]);
+      db.query(deleteComments, [postId]);
+      db.query(deletePost, [postId], (err) => {
+        if (err) {
+          console.error("Error deleting post:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        return res.json({ message: "Post deleted" });
+      });
+    });
+  } catch (error) {
+    console.error("Post delete error:", error);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+});
+
+app.get("/myPosts", (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const userId = decoded.user_id;
+
+    const sql = `
+      SELECT posts.*, users.username, users.profilePic,
+        (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id) AS likeCount,
+        (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) AS commentCount
+      FROM posts
+      JOIN users ON posts.user_id = users.user_id
+      WHERE posts.user_id = ?
+      ORDER BY posts.created_at DESC
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching my posts:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      const formatted = results.map((post) => ({
+        ...post,
+        image: post.image?.startsWith("http")
+          ? post.image
+          : `${req.protocol}://${req.headers.host}${post.image}`,
+        profilePic: post.profilePic?.startsWith("http")
+          ? post.profilePic
+          : `${req.protocol}://${req.headers.host}${post.profilePic || ""}`,
+      }));
+
+      res.json(formatted);
+    });
+  } catch (error) {
+    console.error("myPosts error:", error);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+});
+
 
 
 

@@ -94,34 +94,46 @@ export default function ExploreScreen() {
       Alert.alert("Missing", "Image and caption are required.");
       return;
     }
-
+  
     setUploading(true);
     const fileName = imageUri.split("/").pop();
     const type = getMimeType(imageUri);
     const formData = new FormData();
-    if (Platform.OS === "web" && imageUri.startsWith("data:image")) {
-      const res = await fetch(imageUri);
-      const blob = await res.blob();
-      formData.append("image", blob, fileName);
-    } else {
-      formData.append("image", {
-        uri: imageUri,
-        name: fileName,
-        type,
-      } as any);
-    }
-    formData.append("caption", caption);
-
+  
     try {
+      if (Platform.OS === "web" && imageUri.startsWith("data:image")) {
+        const res = await fetch(imageUri);
+        const blob = await res.blob();
+        formData.append("image", blob, fileName);
+      } else {
+        formData.append("image", {
+          uri: imageUri,
+          name: fileName,
+          type,
+        } as any);
+      }
+      formData.append("caption", caption);
+  
       await uploadPostToServer(formData);
+  
+      // ✅ Optional: Short delay to ensure DB propagation
+      await new Promise((res) => setTimeout(res, 500));
+  
+      // ✅ Re-fetch posts to show immediately
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts);
+  
       setCaption("");
       setImageUri(null);
-      fetchPosts();
+      setShowUploadUI(false); // ✅ Hide the upload section after post
     } catch (err) {
+      console.error("Upload error:", err);
       Alert.alert("Error", "Upload failed.");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
+  
 
   const toggleLike = async (postId: number) => {
     try {
@@ -263,18 +275,24 @@ export default function ExploreScreen() {
   return (
     <LinearGradient colors={["#FFFFFF", "#D4E9C7"]} style={styles.gradient}>
       <View style={styles.topHeader}>
-        <Image source={require("../assets/images/nomnomLogo.png")} style={styles.logo} />
-        <View style={styles.header}>
-  
+  <Image
+    source={require("../assets/images/nomnomLogo.png")}
+    style={styles.logo}
+  />
+
   <View style={styles.headerCenter}>
     <Ionicons name="compass-outline" size={40} color="#6FA35E" />
     <Text style={styles.title}>EXPLORE</Text>
   </View>
+
+  <TouchableOpacity
+    onPress={() => setShowUploadUI(!showUploadUI)}
+    style={styles.plusButtonWrapper}
+  >
+    <Ionicons name="add-circle-outline" size={34} color="#2E7D32" />
+  </TouchableOpacity>
 </View>
-        <TouchableOpacity onPress={() => setShowUploadUI(!showUploadUI)}>
-          <Ionicons name="add-circle-outline" size={30} color="#2E7D32" />
-        </TouchableOpacity>
-      </View>
+
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
         {showUploadUI && (
@@ -325,15 +343,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: Platform.OS === "ios" ? 60 : 50,
     paddingBottom: 10,
-  },
+    backgroundColor: "transparent",
+  },  
   logo: {
     width: 100,
     height: 100,
     resizeMode: "contain",
     marginRight: 10,
   },
+  plusButtonWrapper: {
+    padding: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },  
   title: {
   fontSize: 35,
   fontWeight: "800",
@@ -469,5 +493,14 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+  },
+  ios: {
+    position: "relative", // ensures it's laid out within the flex row
+  },
+  android: {
+    position: "relative",
+  },
+  web: {
+    position: "relative",
   },
 });
