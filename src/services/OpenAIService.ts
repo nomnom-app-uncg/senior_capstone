@@ -173,7 +173,7 @@ export const generateTrendingRecipes = async () => {
   try {
     const cuisines = ['Italian', 'Mexican', 'Japanese', 'Indian', 'Mediterranean', 'Thai', 'Chinese', 'American'];
     const randomCuisines = cuisines.sort(() => 0.5 - Math.random()).slice(0, 4);
-    
+
     // Generate recipes sequentially to avoid rate limiting
     const recipes = [];
     for (const cuisine of randomCuisines) {
@@ -189,14 +189,14 @@ export const generateTrendingRecipes = async () => {
               }
             }
           );
-          
+
           const imageData = await unsplashResponse.json();
           if (imageData.results && imageData.results.length > 0) {
             recipe.image = imageData.results[0].urls.regular;
           } else {
             recipe.image = "https://via.placeholder.com/400x300?text=No+Image";
           }
-          
+
           recipes.push(recipe);
         }
         // Add a delay between requests to avoid rate limiting

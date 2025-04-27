@@ -11,7 +11,7 @@ if (Platform.OS === "web") {
   }
 } else {
   // ✅ Replace with your machine’s actual IP address
-  API_URL = "http://192.168.1.243:3000";
+  API_URL = "http://152.13.58.143:3000";
 }
 
 export { API_URL };

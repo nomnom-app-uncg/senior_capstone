@@ -159,11 +159,10 @@ const CategoryItem: React.FC<CategoryItemProps> = ({ icon, label, color, onPress
   </TouchableOpacity>
 );
 
-const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onPress, saved, onToggleSave }) => (
+const RecipeCard: React.FC<Omit<RecipeCardProps, 'image'>> = ({ title, time, rating, onPress, saved, onToggleSave }) => (
   <View style={{ position: 'relative' }}>
-    {/* Heart icon that toggles on press */}
     <Pressable
-      onPress={!saved ? onToggleSave : undefined} // ❌ Disable if already saved
+      onPress={!saved ? onToggleSave : undefined}
       style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}
     >
       <Ionicons
@@ -173,12 +172,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onP
       />
     </Pressable>
 
-
-
-
-    {/* Touchable card */}
     <TouchableOpacity style={styles.recipeCard} onPress={onPress}>
-      <Image source={{ uri: image }} style={styles.recipeImage} resizeMode="cover" />
       <View style={styles.recipeInfo}>
         <Text style={styles.recipeTitle}>{title}</Text>
         <View style={styles.recipeMetaInfo}>
@@ -195,7 +189,6 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ image, title, time, rating, onP
     </TouchableOpacity>
   </View>
 );
-
 
 const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -314,6 +307,7 @@ const HomeScreen: React.FC = () => {
       const recipes = await generateTrendingRecipes();
       if (recipes.length > 0) {
         setTrendingRecipes(recipes);
+        console.log("🖼️ Recipe image URL:", recipe.image);
       } else {
         console.error("No recipes generated");
       }
@@ -621,7 +615,6 @@ const HomeScreen: React.FC = () => {
                   data={trendingRecipes}
                   renderItem={({ item }) => (
                     <RecipeCard
-                      image={item.image}
                       title={item.title}
                       time={item.time}
                       rating={item.rating}
@@ -629,11 +622,8 @@ const HomeScreen: React.FC = () => {
                       onSave={() => handleSaveRecipe(item)}
                       saved={savedRecipes.includes(item.title)}
                       onToggleSave={() => toggleSaved(item)}
-
                     />
-
                   )}
-
                   keyExtractor={(item) => item.title}
                   contentContainerStyle={styles.trendingList}
                 />
@@ -984,11 +974,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    alignSelf: 'center',
   },
   recipeImage: {
     width: '100%',
     height: 150,
-    resizeMode: 'cover',
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignSelf: 'center',
   },
   recipeInfo: {
     padding: 12,
